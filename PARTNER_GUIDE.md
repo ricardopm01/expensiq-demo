@@ -19,7 +19,7 @@
 ### 1. Clonar el repositorio
 
 ```bash
-git clone git@github.com:edrai-solutions/expensiq-demo.git
+git clone git@github.com:ricardopm01/expensiq-demo.git
 cd expensiq-demo
 ```
 
