@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ExpensIQ — System Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #6ee7b7;
+    --accent2: #818cf8;
+    --accent3: #fb923c;
+    --accent4: #f472b6;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  header p {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-top: 8px;
+    letter-spacing: 0.1em;
+  }
+
+  .diagram {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .layer {
+    margin-bottom: 28px;
+  }
+
+  .layer-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-left: 4px;
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+  }
+
+  .layer-row {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    flex: 1;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .box:hover {
+    transform: translateY(-2px);
+  }
+
+  .box.accent-green { border-top: 3px solid var(--accent); }
+  .box.accent-purple { border-top: 3px solid var(--accent2); }
+  .box.accent-orange { border-top: 3px solid var(--accent3); }
+  .box.accent-pink { border-top: 3px solid var(--accent4); }
+
+  .box-icon {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+
+  .box-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .box-tech {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .box-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .box-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+  }
+
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .arrows {
+    display: flex;
+    justify-content: center;
+    gap: 80px;
+    margin: -6px 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .arrow-line {
+    width: 2px;
+    height: 20px;
+    background: linear-gradient(to bottom, transparent, var(--border), var(--border), transparent);
+  }
+
+  .arrow-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .arrow-head {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid var(--border);
+  }
+
+  .flow-box {
+    background: rgba(110,231,183,0.05);
+    border: 1px dashed rgba(110,231,183,0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 28px;
+  }
+
+  .flow-title {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+
+  .flow-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 0.78rem;
+    text-align: center;
+    flex: 1;
+    min-width: 110px;
+  }
+
+  .flow-step span {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .flow-arrow {
+    color: var(--muted);
+    padding: 0 8px;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .schema-section {
+    margin-top: 40px;
+  }
+
+  .schema-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--accent2);
+  }
+
+  .tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    background: rgba(129,140,248,0.1);
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--accent2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .table-fields {
+    padding: 12px 16px;
+  }
+
+  .field {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: var(--text);
+  }
+
+  .field:last-child { border-bottom: none; }
+
+  .field-type {
+    color: var(--muted);
+    font-size: 0.62rem;
+  }
+
+  .pk { color: var(--accent3); }
+  .fk { color: var(--accent4); }
+
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ExpensIQ Architecture</h1>
+  <p>// EXPENSE INTELLIGENCE PLATFORM — SYSTEM OVERVIEW v1.0</p>
+</header>
+
+<div class="diagram">
+
+  <!-- Layer 1: Client -->
+  <div class="layer">
+    <div class="layer-label">01 — Presentation Layer</div>
+    <div class="layer-row">
+      <div class="box accent-green">
+        <div class="box-icon">🖥️</div>
+        <div class="box-title">Employee Portal</div>
+        <div class="box-tech">Next.js + React</div>
+        <div class="box-desc">Upload receipts, view spending dashboard, manage pending expenses, receive alerts.</div>
+        <div class="box-tags"><span class="tag">Next.js 14</span><span class="tag">Tailwind</span><span class="tag">React Query</span></div>
+      </div>
+      <div class="box accent-green">
+        <div class="box-icon">🔐</div>
+        <div class="box-title">Admin Console</div>
+        <div class="box-tech">Next.js + React</div>
+        <div class="box-desc">Company-wide analytics, anomaly review, unmatched transactions, top spenders overview.</div>
+        <div class="box-tags"><span class="tag">Recharts</span><span class="tag">shadcn/ui</span><span class="tag">Auth.js</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrows">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">REST / JSON</div><div class="arrow-head"></div></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">REST / JSON</div><div class="arrow-head"></div></div>
+  </div>
+
+  <!-- Layer 2: API Gateway -->
+  <div class="layer">
+    <div class="layer-label">02 — API Gateway</div>
+    <div class="layer-row">
+      <div class="box accent-purple" style="flex: 2">
+        <div class="box-icon">⚡</div>
+        <div class="box-title">FastAPI Backend</div>
+        <div class="box-tech">Python 3.11 + FastAPI + SQLAlchemy</div>
+        <div class="box-desc">Central API with JWT auth, rate limiting, input validation. Routes requests to the appropriate internal service. OpenAPI docs auto-generated.</div>
+        <div class="box-tags"><span class="tag">FastAPI</span><span class="tag">Pydantic v2</span><span class="tag">SQLAlchemy</span><span class="tag">Alembic</span><span class="tag">JWT</span></div>
+      </div>
+      <div class="box accent-purple">
+        <div class="box-icon">📁</div>
+        <div class="box-title">File Storage</div>
+        <div class="box-tech">AWS S3 / MinIO</div>
+        <div class="box-desc">Receipt images and invoices stored securely. Pre-signed URLs for upload and retrieval.</div>
+        <div class="box-tags"><span class="tag">S3</span><span class="tag">MinIO (local)</span><span class="tag">Pre-signed URLs</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrows">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">async tasks</div><div class="arrow-head"></div></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">SQL queries</div><div class="arrow-head"></div></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">webhook</div><div class="arrow-head"></div></div>
+  </div>
+
+  <!-- Layer 3: Services -->
+  <div class="layer">
+    <div class="layer-label">03 — Processing Services</div>
+    <div class="layer-row">
+      <div class="box accent-orange">
+        <div class="box-icon">🔍</div>
+        <div class="box-title">OCR Service</div>
+        <div class="box-tech">Google Vision / Textract</div>
+        <div class="box-desc">Extracts text from receipts. NLP + regex pipeline parses merchant, date, amount, VAT.</div>
+        <div class="box-tags"><span class="tag">Vision API</span><span class="tag">Textract</span><span class="tag">regex</span></div>
+      </div>
+      <div class="box accent-orange">
+        <div class="box-icon">🔗</div>
+        <div class="box-title">Reconciliation Engine</div>
+        <div class="box-tech">Python + fuzzywuzzy</div>
+        <div class="box-desc">Fuzzy matches receipts to bank transactions. Confidence scoring: amount (0.5) + date (0.3) + merchant (0.2).</div>
+        <div class="box-tags"><span class="tag">fuzzywuzzy</span><span class="tag">confidence score</span></div>
+      </div>
+      <div class="box accent-orange">
+        <div class="box-icon">🏷️</div>
+        <div class="box-title">Categorizer</div>
+        <div class="box-tech">Rule-based → ML later</div>
+        <div class="box-desc">Classifies expenses into transport, meals, lodging, supplies by keyword matching on merchant name.</div>
+        <div class="box-tags"><span class="tag">rule-based</span><span class="tag">extensible</span></div>
+      </div>
+      <div class="box accent-orange">
+        <div class="box-icon">🚨</div>
+        <div class="box-title">Anomaly Detector</div>
+        <div class="box-tech">Python rules engine</div>
+        <div class="box-desc">Flags duplicates, unmatched receipts, policy violations, rapid repeat expenses at same merchant.</div>
+        <div class="box-tags"><span class="tag">rules</span><span class="tag">thresholds</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrows">
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">read/write</div><div class="arrow-head"></div></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">Plaid API</div><div class="arrow-head"></div></div>
+    <div class="arrow"><div class="arrow-line"></div><div class="arrow-label">SMTP / push</div><div class="arrow-head"></div></div>
+  </div>
+
+  <!-- Layer 4: Data + External -->
+  <div class="layer">
+    <div class="layer-label">04 — Data &amp; External Integrations</div>
+    <div class="layer-row">
+      <div class="box accent-pink">
+        <div class="box-icon">🗄️</div>
+        <div class="box-title">PostgreSQL</div>
+        <div class="box-tech">PostgreSQL 15</div>
+        <div class="box-desc">Primary store: employees, receipts, transactions, matches, alerts. Metabase-compatible schema.</div>
+        <div class="box-tags"><span class="tag">PostgreSQL</span><span class="tag">Alembic migrations</span></div>
+      </div>
+      <div class="box accent-pink">
+        <div class="box-icon">🏦</div>
+        <div class="box-title">Open Banking</div>
+        <div class="box-tech">Plaid API / Tink</div>
+        <div class="box-desc">Pulls real bank transactions. Mock adapter included for demo mode and local development.</div>
+        <div class="box-tags"><span class="tag">Plaid</span><span class="tag">Tink</span><span class="tag">mock adapter</span></div>
+      </div>
+      <div class="box accent-pink">
+        <div class="box-icon">📊</div>
+        <div class="box-title">Analytics</div>
+        <div class="box-tech">Metabase / Custom</div>
+        <div class="box-desc">Connect Metabase directly to PostgreSQL for BI. Custom endpoint aggregates for React dashboard.</div>
+        <div class="box-tags"><span class="tag">Metabase</span><span class="tag">SQL views</span></div>
+      </div>
+      <div class="box accent-pink">
+        <div class="box-icon">🔔</div>
+        <div class="box-title">Notifications</div>
+        <div class="box-tech">FastAPI + SMTP</div>
+        <div class="box-desc">Email alerts for anomalies, mismatches, and admin digests. Push-ready architecture.</div>
+        <div class="box-tags"><span class="tag">SMTP</span><span class="tag">templates</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Flow -->
+  <div class="flow-box">
+    <div class="flow-title">// RECEIPT PROCESSING FLOW</div>
+    <div class="flow-steps">
+      <div class="flow-step"><span>01</span>Upload</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>02</span>S3 Store</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>03</span>OCR Extract</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>04</span>Parse Fields</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>05</span>Categorize</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>06</span>Reconcile</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>07</span>Anomaly Check</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span>08</span>Alert / Match</div>
+    </div>
+  </div>
+
+  <!-- Schema -->
+  <div class="schema-section">
+    <div class="schema-title">// DATABASE SCHEMA — KEY TABLES</div>
+    <div class="tables-grid">
+      <div class="table-card">
+        <div class="table-header">employees</div>
+        <div class="table-fields">
+          <div class="field"><span class="pk">id</span><span class="field-type">UUID PK</span></div>
+          <div class="field"><span>name</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>email</span><span class="field-type">VARCHAR UNIQUE</span></div>
+          <div class="field"><span>department</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>role</span><span class="field-type">ENUM</span></div>
+          <div class="field"><span>created_at</span><span class="field-type">TIMESTAMP</span></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">receipts</div>
+        <div class="table-fields">
+          <div class="field"><span class="pk">id</span><span class="field-type">UUID PK</span></div>
+          <div class="field"><span class="fk">employee_id</span><span class="field-type">UUID FK</span></div>
+          <div class="field"><span>upload_timestamp</span><span class="field-type">TIMESTAMP</span></div>
+          <div class="field"><span>image_url</span><span class="field-type">TEXT</span></div>
+          <div class="field"><span>merchant</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>date</span><span class="field-type">DATE</span></div>
+          <div class="field"><span>amount</span><span class="field-type">NUMERIC(10,2)</span></div>
+          <div class="field"><span>currency</span><span class="field-type">CHAR(3)</span></div>
+          <div class="field"><span>tax</span><span class="field-type">NUMERIC(10,2)</span></div>
+          <div class="field"><span>category</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>status</span><span class="field-type">ENUM</span></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">bank_transactions</div>
+        <div class="table-fields">
+          <div class="field"><span class="pk">id</span><span class="field-type">UUID PK</span></div>
+          <div class="field"><span>date</span><span class="field-type">DATE</span></div>
+          <div class="field"><span>merchant</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>amount</span><span class="field-type">NUMERIC(10,2)</span></div>
+          <div class="field"><span>currency</span><span class="field-type">CHAR(3)</span></div>
+          <div class="field"><span>account_id</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>raw_data</span><span class="field-type">JSONB</span></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">matches</div>
+        <div class="table-fields">
+          <div class="field"><span class="fk">receipt_id</span><span class="field-type">UUID FK</span></div>
+          <div class="field"><span class="fk">transaction_id</span><span class="field-type">UUID FK</span></div>
+          <div class="field"><span>confidence_score</span><span class="field-type">FLOAT</span></div>
+          <div class="field"><span>match_status</span><span class="field-type">ENUM</span></div>
+          <div class="field"><span>matched_at</span><span class="field-type">TIMESTAMP</span></div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">alerts</div>
+        <div class="table-fields">
+          <div class="field"><span class="pk">id</span><span class="field-type">UUID PK</span></div>
+          <div class="field"><span class="fk">employee_id</span><span class="field-type">UUID FK</span></div>
+          <div class="field"><span>alert_type</span><span class="field-type">VARCHAR</span></div>
+          <div class="field"><span>description</span><span class="field-type">TEXT</span></div>
+          <div class="field"><span>is_read</span><span class="field-type">BOOLEAN</span></div>
+          <div class="field"><span>created_at</span><span class="field-type">TIMESTAMP</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  ExpensIQ MVP Architecture — Docker · FastAPI · Next.js · PostgreSQL · OCR · Plaid
+</footer>
+
+</body>
+</html>
