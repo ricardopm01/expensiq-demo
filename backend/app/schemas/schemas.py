@@ -172,6 +172,23 @@ class EmployeeDetailOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Receipt Update (Fase 2) ──────────────────────────────────────
+
+class ReceiptUpdate(BaseModel):
+    merchant: Optional[str] = None
+    date: Optional[DateType] = None
+    amount: Optional[float] = None
+    currency: Optional[str] = None
+    tax: Optional[float] = None
+    category: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ApproveRejectResult(BaseModel):
+    status: str
+    message: str
+
+
 # ── Receipt Match Detail ─────────────────────────────────────────
 
 class ReceiptMatchOut(BaseModel):

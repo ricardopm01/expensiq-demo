@@ -46,6 +46,8 @@ DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d --build
 - MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
 - Metabase: http://localhost:3100
 
+> **Marcos**: http://localhost:8000
+
 ---
 
 ## Regla crítica: dashboard.html tiene DOS ubicaciones
