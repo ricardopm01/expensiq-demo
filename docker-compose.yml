@@ -69,13 +69,13 @@ services:
       AWS_SECRET_ACCESS_KEY: minioadmin
       OCR_PROVIDER:       mock
       BANKING_PROVIDER:   mock
-      CORS_ORIGINS:       '["http://localhost:8000", "http://localhost:3000", "https://*.trycloudflare.com"]'
+      CORS_ORIGINS:       '["*"]'
     volumes:
       - ./backend:/app
       - ./dashboard.html:/dashboard.html:ro
     ports:
       - "8000:8000"
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips=*
 
   # ── Metabase (BI / Analytics) ─────────────────────────────────
   metabase:

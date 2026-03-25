@@ -53,7 +53,7 @@ window.onerror = function(msg, url, line, col, error) {
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
 // ─── Config ────────────────────────────────────────────────────────────────
-const API = 'http://localhost:8000/api/v1';
+const API = `${window.location.origin}/api/v1`;
 
 // ─── API Client ────────────────────────────────────────────────────────────
 const api = {
@@ -1147,7 +1147,7 @@ function ReceiptDetailModal({ receipt: initialReceipt, empMap, onClose, onNaviga
   const handleApprove = async () => {
     setApproving(true);
     try {
-      await fetch(API + '/receipts/' + receipt.id + '/approve', { method: 'POST' });
+      await fetch(API + '/receipts/' + receipt.id + '/approve/', { method: 'POST' });
       toast.success('Recibo aprobado');
       onRefresh && onRefresh();
       onClose();
@@ -1162,7 +1162,7 @@ function ReceiptDetailModal({ receipt: initialReceipt, empMap, onClose, onNaviga
     setRejecting(true);
     try {
       const params = rejectReason.trim() ? '?reason=' + encodeURIComponent(rejectReason.trim()) : '';
-      await fetch(API + '/receipts/' + receipt.id + '/reject' + params, { method: 'POST' });
+      await fetch(API + '/receipts/' + receipt.id + '/reject/' + params, { method: 'POST' });
       toast.success('Recibo rechazado');
       onRefresh && onRefresh();
       onClose();
@@ -1182,7 +1182,7 @@ function ReceiptDetailModal({ receipt: initialReceipt, empMap, onClose, onNaviga
         date:     editFields.date || null,
         category: editFields.category || null,
       };
-      const updated = await fetch(API + '/receipts/' + receipt.id, {
+      const updated = await fetch(API + '/receipts/' + receipt.id + '/', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -1679,7 +1679,7 @@ function App() {
         <footer className="px-7 py-3 border-t border-slate-100 flex items-center justify-between">
           <p className="text-xs text-slate-300">ExpensIQ v1.0 · Gestión Inteligente de Gastos con IA</p>
           <div className="flex items-center gap-4">
-            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors">API Docs</a>
+            <a href={`${window.location.origin}/docs`} target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors">API Docs</a>
             <a href="http://localhost:9001" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors">MinIO</a>
             <a href="http://localhost:3100" target="_blank" rel="noreferrer" className="text-xs text-indigo-400 hover:text-indigo-600 transition-colors">Metabase</a>
           </div>
