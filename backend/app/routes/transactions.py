@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
@@ -22,33 +23,61 @@ logger = logging.getLogger("expensiq.transactions")
 
 router = APIRouter()
 
-# ── Mock bank data (adapted from demo_data_loader.py) ─────────────
+# ── Mock bank data (relative dates, Spanish merchants) ────────────
 
-MOCK_TRANSACTIONS = [
-    {"external_id": "TXN-001", "date": "2025-01-15", "merchant": "Uber",            "amount": 23.50,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-002", "date": "2025-01-16", "merchant": "Restaurant El Buen Sabor", "amount": 45.00, "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-003", "date": "2025-01-17", "merchant": "Hotel Ibis Madrid", "amount": 89.00, "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-004", "date": "2025-01-18", "merchant": "Amazon.es",        "amount": 156.80, "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-005", "date": "2025-01-19", "merchant": "Ryanair",          "amount": 67.30,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-006", "date": "2025-01-20", "merchant": "Starbucks",        "amount": 8.90,   "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-007", "date": "2025-01-21", "merchant": "Cabify",           "amount": 15.40,  "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-008", "date": "2025-01-22", "merchant": "Office Depot",     "amount": 234.50, "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-009", "date": "2025-01-23", "merchant": "Booking.com",      "amount": 120.00, "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-010", "date": "2025-01-24", "merchant": "Deliveroo",        "amount": 32.50,  "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-011", "date": "2025-01-25", "merchant": "Renfe",            "amount": 45.60,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-012", "date": "2025-01-26", "merchant": "Netflix",          "amount": 17.99,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-013", "date": "2025-01-27", "merchant": "Lidl",             "amount": 42.30,  "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-014", "date": "2025-01-28", "merchant": "Parking Saba",     "amount": 12.00,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-015", "date": "2025-01-29", "merchant": "Vodafone",         "amount": 39.99,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-016", "date": "2025-01-30", "merchant": "Hertz Rent",       "amount": 185.00, "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-017", "date": "2025-01-31", "merchant": "IKEA",             "amount": 95.40,  "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-018", "date": "2025-02-01", "merchant": "Spotify",          "amount": 9.99,   "currency": "EUR", "account_id": "ES12-3456"},
-    # Orphan transactions (no matching receipt expected)
-    {"external_id": "TXN-019", "date": "2025-02-02", "merchant": "Unknown Shop A",   "amount": 55.00,  "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-020", "date": "2025-02-03", "merchant": "Mystery Store B",  "amount": 120.00, "currency": "EUR", "account_id": "ES34-7890"},
-    {"external_id": "TXN-021", "date": "2025-02-04", "merchant": "Cash Withdrawal",  "amount": 200.00, "currency": "EUR", "account_id": "ES12-3456"},
-    {"external_id": "TXN-022", "date": "2025-02-05", "merchant": "Wire Transfer",    "amount": 500.00, "currency": "EUR", "account_id": "ES34-7890"},
-]
+
+def _build_mock_txns():
+    """Generate mock transactions with dates relative to today."""
+    today = date.today()
+    acct = "ES83-3008-0001"
+    acct2 = "ES83-3008-0042"
+    base = [
+        (-90, "Cabify",                23.50),
+        (-88, "Restaurante Casa Pepe", 45.00),
+        (-85, "Hotel NH Madrid",       189.00),
+        (-82, "Amazon.es",             156.80),
+        (-78, "Iberia Express",        67.30),
+        (-75, "Cafeteria La Oficina",  8.90),
+        (-72, "Uber Espana",           15.40),
+        (-68, "El Corte Ingles",       134.50),
+        (-65, "Hotel Barcelo Bilbao",  220.00),
+        (-60, "Glovo",                 32.50),
+        (-55, "Renfe AVE",             95.60),
+        (-50, "Netflix Espana",        17.99),
+        (-47, "Mercadona",             42.30),
+        (-44, "Repsol Gasolinera",     52.00),
+        (-40, "Telefonica Movistar",   39.99),
+        (-36, "Europcar Bilbao",       185.00),
+        (-32, "Leroy Merlin",          95.40),
+        (-28, "Spotify Premium",        9.99),
+        (-24, "Asador El Molino",      62.00),
+        (-20, "Parador de Toledo",     245.00),
+        (-16, "Telepizza",             18.50),
+        (-12, "Iberdrola",             98.00),
+        (-8,  "Cabify",                19.80),
+        (-5,  "Restaurante Casa Pepe", 55.00),
+        (-3,  "Amazon.es",             42.90),
+        (-1,  "Cafeteria La Oficina",  12.50),
+        # Orphans (no matching receipt)
+        (-70, "Tienda Desconocida",    55.00),
+        (-45, "Transferencia Recibida", 500.00),
+        (-30, "Retirada Cajero",       200.00),
+        (-15, "Google Workspace",       12.00),
+    ]
+    txns = []
+    for i, (offset, merchant, amount) in enumerate(base):
+        txns.append({
+            "external_id": f"RK-MOCK-{i + 1:03d}",
+            "date": (today + timedelta(days=offset)).isoformat(),
+            "merchant": merchant,
+            "amount": amount,
+            "currency": "EUR",
+            "account_id": acct if i % 3 != 2 else acct2,
+        })
+    return txns
+
+
+MOCK_TRANSACTIONS = _build_mock_txns()
 
 
 @router.get("/", response_model=list[TransactionOut])

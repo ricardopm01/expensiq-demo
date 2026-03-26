@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { Card, KPICard, SectionHeader, Btn, EmptyState, PageLoading, StatusBadge } from '@/components/ui';
+import { Card, KPICard, SectionHeader, Btn, EmptyState, DashboardSkeleton, StatusBadge } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
 import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt } from '@/types';
@@ -75,7 +75,7 @@ function EmployeeDashboard() {
     );
   }
 
-  if (loading) return <PageLoading />;
+  if (loading) return <DashboardSkeleton />;
   if (!employee) return <EmptyState icon={<Zap className="w-12 h-12" />} title="Empleado no encontrado" desc="" />;
 
   const budgetPct =
@@ -327,7 +327,7 @@ function AdminDashboard() {
     }
   };
 
-  if (loading) return <PageLoading />;
+  if (loading) return <DashboardSkeleton />;
 
   const pctMatched =
     summary && summary.receipt_count > 0

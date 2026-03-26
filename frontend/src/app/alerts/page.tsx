@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { Card, Btn, EmptyState, PageLoading } from '@/components/ui';
+import { Card, Btn, EmptyState, TablePageSkeleton } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import type { Alert } from '@/types';
 import { ALERT_LABEL, SEVERITY_CONFIG } from '@/types';
@@ -115,7 +115,7 @@ export default function AlertsPage() {
     counts[a.alert_type] = (counts[a.alert_type] || 0) + 1;
   });
 
-  if (loading) return <PageLoading />;
+  if (loading) return <TablePageSkeleton />;
 
   return (
     <div className="space-y-5">

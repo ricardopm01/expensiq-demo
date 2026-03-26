@@ -1,13 +1,14 @@
 """
-ExpensIQ — Demo Data Loader (Phase B — 6 months, anomalies, 8 employees)
+ExpensIQ — Demo Data Loader (Phase E — Spanish context, relative dates)
 
 Run: python demo_data_loader.py [output.json]
 
 Generates:
-  - 8 employees across 4 departments
-  - ~90 receipts spanning Oct 2025 – Mar 2026
-  - ~50 bank transactions (including orphans)
+  - 8 employees (Spanish names, Spanish departments)
+  - ~90 receipts spanning last 6 months
+  - ~55 bank transactions (including orphans)
   - Intentional anomalies for AI detection testing
+  - Budget overruns for 2 employees
 """
 
 import sys
@@ -25,42 +26,42 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 # ─────────────────────────────────────────────────────────────────
 
 EMPLOYEES = [
-    {"name": "Alice Martin",     "email": "alice@acme.com",     "department": "Engineering",  "role": "employee", "monthly_budget": 800.0},
-    {"name": "Bob Lefevre",      "email": "bob@acme.com",       "department": "Sales",        "role": "employee", "monthly_budget": 1200.0},
-    {"name": "Carla Ramos",      "email": "carla@acme.com",     "department": "Marketing",    "role": "manager",  "monthly_budget": 2000.0},
-    {"name": "David Chen",       "email": "david@acme.com",     "department": "Engineering",  "role": "employee", "monthly_budget": 600.0},
-    {"name": "Eva Kowalski",     "email": "eva@acme.com",       "department": "Finance",      "role": "admin",    "monthly_budget": 500.0},
-    {"name": "Fernando Garcia",  "email": "fernando@acme.com",  "department": "Sales",        "role": "employee", "monthly_budget": 1000.0},
-    {"name": "Greta Olsen",      "email": "greta@acme.com",     "department": "Marketing",    "role": "employee", "monthly_budget": 900.0},
-    {"name": "Hugo Fernandez",   "email": "hugo@acme.com",      "department": "Operations",   "role": "manager",  "monthly_budget": 1500.0},
+    {"name": "Ana Garcia Lopez",       "email": "ana@empresa.com",       "department": "Ventas",       "role": "employee", "monthly_budget": 800.0},
+    {"name": "Carlos Ruiz Martin",     "email": "carlos@empresa.com",    "department": "Marketing",    "role": "manager",  "monthly_budget": 1200.0},
+    {"name": "Elena Torres Vega",      "email": "elena@empresa.com",     "department": "Ingenieria",   "role": "employee", "monthly_budget": 600.0},
+    {"name": "Miguel Fernandez Diaz",  "email": "miguel@empresa.com",    "department": "Direccion",    "role": "admin",    "monthly_budget": 2000.0},
+    {"name": "Lucia Moreno Sanz",      "email": "lucia@empresa.com",     "department": "Operaciones",  "role": "employee", "monthly_budget": 900.0},
+    {"name": "Pablo Navarro Ruiz",     "email": "pablo@empresa.com",     "department": "Ventas",       "role": "employee", "monthly_budget": 1000.0},
+    {"name": "Maria Jimenez Castro",   "email": "maria@empresa.com",     "department": "Marketing",    "role": "employee", "monthly_budget": 700.0},
+    {"name": "Javier Ortega Blanco",   "email": "javier@empresa.com",    "department": "Ingenieria",   "role": "manager",  "monthly_budget": 1500.0},
 ]
 
-# 6-month window: Oct 2025 - Mar 2026
-START_DATE = date(2025, 10, 1)
-END_DATE = date(2026, 3, 25)
+# Relative 6-month window
+END_DATE = date.today()
+START_DATE = END_DATE - timedelta(days=180)
 
 RECEIPT_TEMPLATES = [
     # (merchant, amount_range, currency, tax_rate, category)
-    ("Uber Technologies",      (15, 45),    "EUR", 0.21, "transport"),
-    ("Restaurant Le Bistro",   (35, 85),    "EUR", 0.10, "meals"),
-    ("Ibis Hotel Paris",       (120, 250),  "EUR", 0.10, "lodging"),
-    ("Starbucks Coffee",       (8, 18),     "EUR", 0.10, "meals"),
-    ("Amazon Business",        (30, 150),   "EUR", 0.21, "supplies"),
-    ("Ryanair",                (80, 200),   "EUR", 0.10, "transport"),
-    ("Deliveroo",              (15, 45),    "EUR", 0.10, "meals"),
-    ("Office Depot",           (40, 120),   "EUR", 0.21, "supplies"),
-    ("Bolt Taxi",              (10, 30),    "EUR", 0.21, "transport"),
-    ("Marriott Hotel",         (180, 350),  "EUR", 0.10, "lodging"),
-    ("Nandos Restaurant",      (25, 55),    "EUR", 0.10, "meals"),
-    ("SNCF Train",             (50, 150),   "EUR", 0.10, "transport"),
-    ("Cafe de Flore",          (12, 30),    "EUR", 0.10, "meals"),
-    ("Hertz Car Rental",       (100, 250),  "EUR", 0.21, "transport"),
-    ("Novotel Barcelona",      (130, 280),  "EUR", 0.10, "lodging"),
-    ("Staples Office",         (25, 80),    "EUR", 0.21, "supplies"),
-    ("McDonalds",              (8, 20),     "EUR", 0.10, "meals"),
-    ("Gas Station Repsol",     (40, 80),    "EUR", 0.21, "transport"),
-    ("Telefonica",             (30, 60),    "EUR", 0.21, "utilities"),
-    ("Endesa Energia",         (80, 150),   "EUR", 0.21, "utilities"),
+    ("Cabify",                   (12, 35),    "EUR", 0.21, "transport"),
+    ("Restaurante Casa Pepe",    (25, 65),    "EUR", 0.10, "meals"),
+    ("Hotel NH Madrid",          (110, 220),  "EUR", 0.10, "lodging"),
+    ("Cafeteria La Oficina",     (6, 15),     "EUR", 0.10, "meals"),
+    ("El Corte Ingles",          (30, 180),   "EUR", 0.21, "supplies"),
+    ("Renfe AVE",                (45, 160),   "EUR", 0.10, "transport"),
+    ("Glovo",                    (12, 35),    "EUR", 0.10, "meals"),
+    ("Leroy Merlin",             (25, 90),    "EUR", 0.21, "supplies"),
+    ("Uber Espana",              (8, 28),     "EUR", 0.21, "transport"),
+    ("Parador de Toledo",        (150, 300),  "EUR", 0.10, "lodging"),
+    ("Mercadona",                (20, 60),    "EUR", 0.04, "meals"),
+    ("Iberia Express",           (60, 200),   "EUR", 0.10, "transport"),
+    ("Asador El Molino",         (35, 85),    "EUR", 0.10, "meals"),
+    ("Europcar Bilbao",          (80, 200),   "EUR", 0.21, "transport"),
+    ("Hotel Barcelo Bilbao",     (120, 260),  "EUR", 0.10, "lodging"),
+    ("Amazon.es",                (15, 120),   "EUR", 0.21, "supplies"),
+    ("Telepizza",                (10, 25),    "EUR", 0.10, "meals"),
+    ("Repsol Gasolinera",        (35, 75),    "EUR", 0.21, "transport"),
+    ("Telefonica Movistar",      (30, 55),    "EUR", 0.21, "utilities"),
+    ("Iberdrola",                (70, 140),   "EUR", 0.21, "utilities"),
 ]
 
 
@@ -76,7 +77,22 @@ def calc_approval_level(amount):
 
 def random_date_in_range(start: date, end: date) -> date:
     delta = (end - start).days
+    if delta <= 0:
+        return start
     return start + timedelta(days=random.randint(0, delta))
+
+
+def get_months_in_range(start: date, end: date):
+    """Return list of (year, month) tuples covering the range."""
+    months = []
+    current = start.replace(day=1)
+    while current <= end:
+        months.append((current.year, current.month))
+        if current.month == 12:
+            current = current.replace(year=current.year + 1, month=1)
+        else:
+            current = current.replace(month=current.month + 1)
+    return months
 
 
 def generate_demo_json(output_path: str = "demo_data.json"):
@@ -90,14 +106,15 @@ def generate_demo_json(output_path: str = "demo_data.json"):
     receipts = []
     receipt_idx = 0
 
+    months = get_months_in_range(START_DATE, END_DATE)
+
     # ── Normal receipts (~70) ─────────────────────────────────────
-    months = [
-        (2025, 10), (2025, 11), (2025, 12),
-        (2026, 1), (2026, 2), (2026, 3),
-    ]
     for year, month in months:
         month_start = date(year, month, 1)
-        month_end = month_start + timedelta(days=27)
+        # End at 27 or END_DATE, whichever is earlier
+        month_end = min(month_start + timedelta(days=27), END_DATE)
+        if month_end < month_start:
+            continue
 
         num_receipts = random.randint(10, 14)
         for _ in range(num_receipts):
@@ -108,7 +125,6 @@ def generate_demo_json(output_path: str = "demo_data.json"):
             tax = round(amount * tax_rate, 2)
             r_date = random_date_in_range(month_start, month_end)
 
-            # Weekday receipts mostly
             confidence = round(random.uniform(0.82, 0.98), 3)
             status = random.choices(
                 ["pending", "matched", "review"],
@@ -136,15 +152,85 @@ def generate_demo_json(output_path: str = "demo_data.json"):
             })
             receipt_idx += 1
 
+    # ── BUDGET OVERRUN: Pablo Navarro (budget 1000) ──────────────
+    pablo = employees[5]  # Pablo Navarro Ruiz
+    recent_months = months[-2:]  # Last 2 months
+    for year, month in recent_months:
+        month_start = date(year, month, 1)
+        month_end = min(month_start + timedelta(days=27), END_DATE)
+        if month_end < month_start:
+            continue
+        for _ in range(6):
+            tmpl = random.choice([t for t in RECEIPT_TEMPLATES if t[4] in ("meals", "transport")])
+            merchant, (amt_low, amt_high), currency, tax_rate, category = tmpl
+            amount = round(random.uniform(amt_high * 0.7, amt_high * 1.2), 2)
+            tax = round(amount * tax_rate, 2)
+            r_date = random_date_in_range(month_start, month_end)
+            receipts.append({
+                "id": str(uuid.uuid4()),
+                "employee_id": pablo["id"],
+                "upload_timestamp": datetime.combine(
+                    r_date, datetime.min.time().replace(hour=random.randint(8, 18))
+                ).isoformat(),
+                "image_url": f"https://demo.expensiq.local/receipts/sample_{receipt_idx + 1:03d}.jpg",
+                "merchant": merchant,
+                "date": r_date.isoformat(),
+                "amount": amount,
+                "currency": currency,
+                "tax": tax,
+                "category": category,
+                "status": "matched",
+                "ocr_confidence": round(random.uniform(0.85, 0.97), 3),
+                "ocr_provider": "mock",
+                "payment_method": "card",
+                "approval_level": calc_approval_level(amount),
+            })
+            receipt_idx += 1
+
+    # ── BUDGET OVERRUN: Maria Jimenez (budget 700) ───────────────
+    maria = employees[6]  # Maria Jimenez Castro
+    for year, month in recent_months:
+        month_start = date(year, month, 1)
+        month_end = min(month_start + timedelta(days=27), END_DATE)
+        if month_end < month_start:
+            continue
+        for _ in range(5):
+            tmpl = random.choice([t for t in RECEIPT_TEMPLATES if t[4] in ("meals", "supplies")])
+            merchant, (amt_low, amt_high), currency, tax_rate, category = tmpl
+            amount = round(random.uniform(amt_high * 0.6, amt_high * 1.1), 2)
+            tax = round(amount * tax_rate, 2)
+            r_date = random_date_in_range(month_start, month_end)
+            receipts.append({
+                "id": str(uuid.uuid4()),
+                "employee_id": maria["id"],
+                "upload_timestamp": datetime.combine(
+                    r_date, datetime.min.time().replace(hour=random.randint(8, 18))
+                ).isoformat(),
+                "image_url": f"https://demo.expensiq.local/receipts/sample_{receipt_idx + 1:03d}.jpg",
+                "merchant": merchant,
+                "date": r_date.isoformat(),
+                "amount": amount,
+                "currency": currency,
+                "tax": tax,
+                "category": category,
+                "status": "matched",
+                "ocr_confidence": round(random.uniform(0.84, 0.96), 3),
+                "ocr_provider": "mock",
+                "payment_method": random.choice(["card", "card", "cash"]),
+                "approval_level": calc_approval_level(amount),
+            })
+            receipt_idx += 1
+
     # ── ANOMALY: Policy violation (>500 EUR) ──────────────────────
-    anomaly_emp = employees[1]  # Bob, sales
+    anomaly_date = END_DATE - timedelta(days=30)
+    anomaly_emp = employees[5]  # Pablo, ventas
     receipts.append({
         "id": str(uuid.uuid4()),
         "employee_id": anomaly_emp["id"],
-        "upload_timestamp": datetime(2026, 2, 15, 14, 30).isoformat(),
-        "image_url": f"https://demo.expensiq.local/receipts/anomaly_policy.jpg",
-        "merchant": "Executive Conference Center Madrid",
-        "date": "2026-02-15",
+        "upload_timestamp": datetime.combine(anomaly_date, datetime.min.time().replace(hour=14, minute=30)).isoformat(),
+        "image_url": "https://demo.expensiq.local/receipts/anomaly_policy.jpg",
+        "merchant": "Sala VIP Bernabeu",
+        "date": anomaly_date.isoformat(),
         "amount": 1250.00,
         "currency": "EUR",
         "tax": 113.64,
@@ -157,38 +243,41 @@ def generate_demo_json(output_path: str = "demo_data.json"):
     })
 
     # ── ANOMALY: Rapid repeat (3 receipts same merchant in 24h) ──
-    rapid_emp = employees[3]  # David, engineering
+    rapid_date = END_DATE - timedelta(days=55)
+    rapid_emp = employees[2]  # Elena, ingenieria
     for i in range(3):
+        amt = round(random.uniform(15, 35), 2)
         receipts.append({
             "id": str(uuid.uuid4()),
             "employee_id": rapid_emp["id"],
-            "upload_timestamp": datetime(2026, 1, 20, 9 + i * 3, 15).isoformat(),
+            "upload_timestamp": datetime.combine(rapid_date, datetime.min.time().replace(hour=9 + i * 3, minute=15)).isoformat(),
             "image_url": f"https://demo.expensiq.local/receipts/rapid_{i}.jpg",
-            "merchant": "Uber Technologies",
-            "date": "2026-01-20",
-            "amount": round(random.uniform(15, 35), 2),
+            "merchant": "Cabify",
+            "date": rapid_date.isoformat(),
+            "amount": amt,
             "currency": "EUR",
-            "tax": round(random.uniform(3, 7), 2),
+            "tax": round(amt * 0.21, 2),
             "category": "transport",
             "status": "review",
             "ocr_confidence": 0.91,
             "ocr_provider": "mock",
             "payment_method": "card",
-            "approval_level": calc_approval_level(round(random.uniform(15, 35), 2)),
+            "approval_level": calc_approval_level(amt),
         })
 
     # ── ANOMALY: Duplicate receipts ───────────────────────────────
-    dup_emp = employees[0]  # Alice
+    dup_date = END_DATE - timedelta(days=90)
+    dup_emp = employees[0]  # Ana
     dup_id1 = str(uuid.uuid4())
     dup_id2 = str(uuid.uuid4())
     for dup_id in [dup_id1, dup_id2]:
         receipts.append({
             "id": dup_id,
             "employee_id": dup_emp["id"],
-            "upload_timestamp": datetime(2025, 12, 10, 11, 0).isoformat(),
-            "image_url": f"https://demo.expensiq.local/receipts/dup.jpg",
-            "merchant": "Starbucks Coffee",
-            "date": "2025-12-10",
+            "upload_timestamp": datetime.combine(dup_date, datetime.min.time().replace(hour=11)).isoformat(),
+            "image_url": "https://demo.expensiq.local/receipts/dup.jpg",
+            "merchant": "Cafeteria La Oficina",
+            "date": dup_date.isoformat(),
             "amount": 14.80,
             "currency": "EUR",
             "tax": 1.35,
@@ -201,13 +290,17 @@ def generate_demo_json(output_path: str = "demo_data.json"):
         })
 
     # ── ANOMALY: Weekend expense ──────────────────────────────────
+    # Find a recent Saturday
+    weekend_date = END_DATE - timedelta(days=15)
+    while weekend_date.weekday() != 5:  # Saturday
+        weekend_date -= timedelta(days=1)
     receipts.append({
         "id": str(uuid.uuid4()),
-        "employee_id": employees[5]["id"],  # Fernando
-        "upload_timestamp": datetime(2026, 3, 8, 23, 45).isoformat(),  # Saturday night
-        "image_url": f"https://demo.expensiq.local/receipts/weekend.jpg",
-        "merchant": "Nightclub Premium VIP",
-        "date": "2026-03-08",
+        "employee_id": employees[5]["id"],  # Pablo
+        "upload_timestamp": datetime.combine(weekend_date, datetime.min.time().replace(hour=23, minute=45)).isoformat(),
+        "image_url": "https://demo.expensiq.local/receipts/weekend.jpg",
+        "merchant": "Discoteca Opium Madrid",
+        "date": weekend_date.isoformat(),
         "amount": 385.00,
         "currency": "EUR",
         "tax": 35.00,
@@ -220,11 +313,12 @@ def generate_demo_json(output_path: str = "demo_data.json"):
     })
 
     # ── ANOMALY: Low OCR confidence receipts ──────────────────────
+    low_ocr_date = END_DATE - timedelta(days=70)
     receipts.append({
         "id": str(uuid.uuid4()),
-        "employee_id": employees[6]["id"],  # Greta
-        "upload_timestamp": datetime(2026, 1, 5, 10, 0).isoformat(),
-        "image_url": f"https://demo.expensiq.local/receipts/blurry.jpg",
+        "employee_id": employees[6]["id"],  # Maria
+        "upload_timestamp": datetime.combine(low_ocr_date, datetime.min.time().replace(hour=10)).isoformat(),
+        "image_url": "https://demo.expensiq.local/receipts/blurry.jpg",
         "merchant": None,
         "date": None,
         "amount": None,
@@ -252,32 +346,32 @@ def generate_demo_json(output_path: str = "demo_data.json"):
         transactions.append({
             "id": str(uuid.uuid4()),
             "employee_id": r["employee_id"],
-            "external_id": f"TXN-{i:04d}",
+            "external_id": f"RK-{i:04d}",
             "date": txn_date.isoformat(),
             "merchant": r["merchant"],
             "amount": round(r["amount"] + noise_amount, 2),
             "currency": r["currency"],
-            "account_id": "acct-demo-001",
+            "account_id": "ES83-3008-0001",
         })
 
     # Orphan transactions (no receipt)
     orphans = [
-        ("Netflix Subscription",  12.99, "EUR"),
-        ("AWS Cloud Services",    89.00, "EUR"),
-        ("Spotify Premium",        9.99, "EUR"),
-        ("Apple iCloud",           2.99, "EUR"),
-        ("Google Workspace",      12.00, "EUR"),
+        ("Netflix Espana",       12.99, "EUR"),
+        ("AWS Cloud Services",   89.00, "EUR"),
+        ("Spotify Premium",       9.99, "EUR"),
+        ("Google Workspace",     12.00, "EUR"),
+        ("Movistar Fusion",      45.00, "EUR"),
     ]
     for i, (merchant, amount, currency) in enumerate(orphans):
         transactions.append({
             "id": str(uuid.uuid4()),
             "employee_id": random.choice(employees)["id"],
-            "external_id": f"TXN-ORPHAN-{i:04d}",
+            "external_id": f"RK-ORPHAN-{i:04d}",
             "date": random_date_in_range(START_DATE, END_DATE).isoformat(),
             "merchant": merchant,
             "amount": amount,
             "currency": currency,
-            "account_id": "acct-demo-001",
+            "account_id": "ES83-3008-0001",
         })
 
     data = {
@@ -296,6 +390,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
     print(f"   Transactions: {len(transactions)}")
     print(f"   Date range:   {START_DATE} to {END_DATE}")
     print(f"   Anomalies:    policy violation, rapid repeat x3, duplicate x2, weekend, low OCR")
+    print(f"   Budget overruns: Pablo Navarro, Maria Jimenez")
     return data
 
 

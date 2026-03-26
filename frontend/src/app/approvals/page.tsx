@@ -14,7 +14,7 @@ import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { useRole } from '@/lib/role-context';
 import { useToast } from '@/components/toast';
-import { Card, KPICard, SectionHeader, DataTable, StatusBadge, Btn, PageLoading } from '@/components/ui';
+import { Card, KPICard, SectionHeader, DataTable, StatusBadge, Btn, TablePageSkeleton, EmptyState } from '@/components/ui';
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import type { Receipt, Employee, ApprovalSummary, ApproveRejectResult } from '@/types';
 import { APPROVAL_LEVEL_CONFIG } from '@/types';
@@ -110,7 +110,7 @@ export default function ApprovalsPage() {
     load();
   };
 
-  if (loading) return <PageLoading />;
+  if (loading) return <TablePageSkeleton />;
 
   return (
     <div className="space-y-6">
@@ -198,9 +198,11 @@ export default function ApprovalsPage() {
         <DataTable
           headers={['', 'Comercio', 'Empleado', 'Importe', 'Nivel', 'Estado', 'Fecha', '']}
           empty={filtered.length === 0 && (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              No hay recibos pendientes de aprobacion
-            </div>
+            <EmptyState
+              icon={<CheckSquare className="w-12 h-12" />}
+              title="Sin aprobaciones pendientes"
+              desc="No hay recibos pendientes de aprobacion con los filtros actuales."
+            />
           )}
         >
           {filtered.map((r) => {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Users, Wallet, Building } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { Card, KPICard, DataTable, EmptyState, PageLoading } from '@/components/ui';
+import { Card, KPICard, DataTable, EmptyState, TablePageSkeleton } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import type { Employee } from '@/types';
 
@@ -21,9 +21,17 @@ const AVATAR_COLORS = [
 const DEPT_BADGE: Record<string, string> = {
   Ventas: 'bg-blue-100 text-blue-700',
   Ingenieria: 'bg-indigo-100 text-indigo-700',
+  'Ingeniería': 'bg-indigo-100 text-indigo-700',
   Marketing: 'bg-pink-100 text-pink-700',
   Operaciones: 'bg-amber-100 text-amber-700',
+  Direccion: 'bg-purple-100 text-purple-700',
+  'Dirección': 'bg-purple-100 text-purple-700',
   RRHH: 'bg-emerald-100 text-emerald-700',
+  // Legacy English names
+  Engineering: 'bg-indigo-100 text-indigo-700',
+  Sales: 'bg-blue-100 text-blue-700',
+  Finance: 'bg-emerald-100 text-emerald-700',
+  Operations: 'bg-amber-100 text-amber-700',
 };
 
 function initials(name: string) {
@@ -55,7 +63,7 @@ export default function EmployeesPage() {
       .finally(() => setLoading(false));
   }, [toast]);
 
-  if (loading) return <PageLoading />;
+  if (loading) return <TablePageSkeleton />;
 
   return (
     <div className="space-y-5">

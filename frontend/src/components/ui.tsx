@@ -260,3 +260,42 @@ export function PageLoading() {
     </div>
   );
 }
+
+// ── Skeleton Block ───────────────────────────────────────────────
+export function SkeletonBlock({ className = '' }: { className?: string }) {
+  return (
+    <div className={clsx('animate-pulse bg-slate-100 rounded-2xl', className)} />
+  );
+}
+
+// ── Dashboard Skeleton ───────────────────────────────────────────
+export function DashboardSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonBlock key={i} className="h-28" />
+        ))}
+      </div>
+      <SkeletonBlock className="h-10" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <SkeletonBlock className="h-72" />
+        <SkeletonBlock className="h-72" />
+      </div>
+    </div>
+  );
+}
+
+// ── Table Page Skeleton ──────────────────────────────────────────
+export function TablePageSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <SkeletonBlock key={i} className="h-28" />
+        ))}
+      </div>
+      <SkeletonBlock className="h-96" />
+    </div>
+  );
+}

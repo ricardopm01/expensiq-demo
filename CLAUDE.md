@@ -207,10 +207,15 @@ backend/
 - Endpoint preview-import y import-bank-extract
 - Endpoint template/expense-excel e import-expense-excel
 
-### Fase E — PENDIENTE
-- Pulido visual (skeletons, empty states, responsive)
-- Datos demo definitivos
-- Script de demo guiado
+### Fase E — COMPLETADA
+- Responsive sidebar: hamburger mobile, overlay, transiciones (layout-shell.tsx nuevo)
+- Skeleton screens: DashboardSkeleton, TablePageSkeleton en todas las páginas
+- Empty state en Approvals con componente EmptyState
+- Responsive tweaks: padding mobile en layout y header
+- Datos demo definitivos: 8 empleados españoles, merchants ES, fechas relativas, budget overruns
+- Mock transactions actualizados: Spanish merchants, fechas relativas, cuentas Rural Kutxa
+- DEPT_BADGE actualizado: Dirección, Ingeniería (con/sin tildes), legacy English
+- Script demo guiado: DEMO_SCRIPT.md con 7 actos (~18 min)
 
 ---
 

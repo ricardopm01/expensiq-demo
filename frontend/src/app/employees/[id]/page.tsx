@@ -27,7 +27,7 @@ import {
   Btn,
   StatusBadge,
   EmptyState,
-  PageLoading,
+  DashboardSkeleton,
 } from '@/components/ui';
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
@@ -79,7 +79,7 @@ export default function EmployeeProfilePage() {
   const toggleCategory = (cat: string) =>
     setExpanded((p) => ({ ...p, [cat]: !p[cat] }));
 
-  if (loading) return <PageLoading />;
+  if (loading) return <DashboardSkeleton />;
 
   if (!employee)
     return (

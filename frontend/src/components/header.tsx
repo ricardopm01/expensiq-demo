@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Shield, UserCircle } from 'lucide-react';
+import { Shield, UserCircle, Menu } from 'lucide-react';
 import { useRole } from '@/lib/role-context';
 import { ROLE_LABELS } from '@/types';
 
@@ -21,7 +21,11 @@ const EMPLOYEE_META: Record<string, { title: string; subtitle: string }> = {
   '/profile':  { title: 'Mi Perfil',   subtitle: 'Tu resumen de gastos y presupuesto' },
 };
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const { role, setRole, employeeId, setEmployeeId, employees } = useRole();
 
@@ -36,12 +40,20 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200/80 px-7 py-4 flex items-center justify-between">
-      <div>
-        <h1 className="text-lg font-bold text-slate-800">{meta.title}</h1>
-        <p className="text-xs text-slate-400">{meta.subtitle}</p>
+    <header className="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-slate-200/80 px-4 py-3 md:px-7 md:py-4 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <button
+          onClick={onMenuClick}
+          className="md:hidden text-slate-500 hover:text-slate-800 transition-colors -ml-1"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold text-slate-800 truncate">{meta.title}</h1>
+          <p className="text-xs text-slate-400 truncate hidden sm:block">{meta.subtitle}</p>
+        </div>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 flex-wrap justify-end">
         {/* Employee Selector — only when role is employee */}
         {role === 'employee' && employees.length > 0 && (
           <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5">
@@ -49,7 +61,7 @@ export function Header() {
             <select
               value={employeeId || ''}
               onChange={(e) => setEmployeeId(e.target.value || null)}
-              className="text-xs font-semibold text-emerald-700 bg-transparent border-none outline-none cursor-pointer max-w-[150px]"
+              className="text-xs font-semibold text-emerald-700 bg-transparent border-none outline-none cursor-pointer max-w-[120px] sm:max-w-[150px]"
             >
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>{emp.name}</option>

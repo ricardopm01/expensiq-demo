@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { Card, KPICard, Btn, DataTable, EmptyState, PageLoading } from '@/components/ui';
+import { Card, KPICard, Btn, DataTable, EmptyState, TablePageSkeleton } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { BankImportDropzone } from '@/components/bank-import-dropzone';
 import type { Transaction } from '@/types';
@@ -84,7 +84,7 @@ export default function TransactionsPage() {
 
   const totalAmount = txns.reduce((s, t) => s + (t.amount || 0), 0);
 
-  if (loading) return <PageLoading />;
+  if (loading) return <TablePageSkeleton />;
 
   return (
     <div className="space-y-5">
