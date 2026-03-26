@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   CheckSquare,
   Shield,
-  UserCheck,
-  Crown,
   Zap,
   Filter,
   CheckCircle,
@@ -62,7 +60,14 @@ export default function ApprovalsPage() {
   const pendingStatuses = ['pending', 'review', 'flagged'];
   const filtered = receipts.filter((r) => {
     if (!pendingStatuses.includes(r.status)) return false;
-    if (levelFilter && r.approval_level !== levelFilter) return false;
+    if (levelFilter) {
+      if (levelFilter === 'admin') {
+        // Match admin, manager, director (legacy)
+        if (!['admin', 'manager', 'director'].includes(r.approval_level || '')) return false;
+      } else if (r.approval_level !== levelFilter) {
+        return false;
+      }
+    }
     if (statusFilter && r.status !== statusFilter) return false;
     return true;
   });
@@ -70,9 +75,7 @@ export default function ApprovalsPage() {
   // Can current role approve this level?
   const canApprove = (level: string | null) => {
     if (!level || level === 'auto') return true;
-    if (level === 'manager') return role === 'manager' || role === 'admin';
-    if (level === 'director') return role === 'admin';
-    return false;
+    return role === 'admin';
   };
 
   const toggleSelect = (id: string) => {
@@ -115,7 +118,7 @@ export default function ApprovalsPage() {
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <KPICard
           label="Auto-aprobacion"
           value={summary?.pending_auto ?? 0}
@@ -124,18 +127,11 @@ export default function ApprovalsPage() {
           accent="emerald"
         />
         <KPICard
-          label="Gerente"
-          value={summary?.pending_manager ?? 0}
-          sub="Pendientes 100-500 EUR"
-          icon={<UserCheck className="w-5 h-5" />}
+          label="Administrador"
+          value={summary?.pending_admin ?? 0}
+          sub="Pendientes >= 100 EUR"
+          icon={<Shield className="w-5 h-5" />}
           accent="indigo"
-        />
-        <KPICard
-          label="Director"
-          value={summary?.pending_director ?? 0}
-          sub="Pendientes > 500 EUR"
-          icon={<Crown className="w-5 h-5" />}
-          accent="purple"
         />
         <KPICard
           label="Aprobados hoy"
@@ -172,8 +168,7 @@ export default function ApprovalsPage() {
           >
             <option value="">Todos los niveles</option>
             <option value="auto">Auto (&lt;100 EUR)</option>
-            <option value="manager">Gerente (100-500 EUR)</option>
-            <option value="director">Director (&gt;500 EUR)</option>
+            <option value="admin">Administrador (&ge;100 EUR)</option>
           </select>
           <select
             value={statusFilter}
@@ -190,7 +185,7 @@ export default function ApprovalsPage() {
           <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-400">
             <Shield className="w-3.5 h-3.5" />
             Rol actual: <span className="font-semibold text-slate-600">
-              {role === 'admin' ? 'Director' : role === 'manager' ? 'Gerente' : 'Empleado'}
+              {role === 'admin' ? 'Administrador' : 'Empleado'}
             </span>
           </div>
         </div>

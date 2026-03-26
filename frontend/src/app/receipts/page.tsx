@@ -52,9 +52,7 @@ function ReceiptsPage() {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
-  const [showFilters, setShowFilters] = useState(
-    !!(searchParams.get('employee_id') || searchParams.get('category'))
-  );
+  const [showFilters, setShowFilters] = useState(true);
 
   // Auto-set employee filter when in employee role
   useEffect(() => {

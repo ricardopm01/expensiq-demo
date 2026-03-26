@@ -77,7 +77,7 @@ def ai_anomaly_scan(db: Session = Depends(get_db)):
     return {"alerts_created": created}
 
 
-@router.get("/", response_model=list[AlertOut])
+@router.get("", response_model=list[AlertOut])
 def list_alerts(
     resolved: Optional[bool] = None,
     limit: int = 100,

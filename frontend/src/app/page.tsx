@@ -24,8 +24,7 @@ import {
   Zap,
   FolderOpen,
   TrendingUp,
-  Crown,
-  UserCheck,
+  Shield,
   ArrowRight,
   Clock,
   BarChart3,
@@ -305,19 +304,22 @@ function AdminDashboard() {
   const handleFullDemo = async () => {
     setDemoLoading(true);
     try {
-      setDemoStep('Cargando empleados y recibos...');
-      await api.post('/seed', {});
-      setDemoStep('Importando transacciones bancarias...');
-      const sync = await api.post<{ created: number }>('/transactions/sync-mock', {});
-      toast.info(sync.created + ' transacciones importadas');
-      setDemoStep('Ejecutando conciliacion IA...');
-      const rec = await api.post<{ matches_created: number; alerts_created: number }>(
-        '/transactions/reconcile-all',
-        {}
-      );
-      toast.success(
-        'Demo completo: ' + rec.matches_created + ' matches · ' + rec.alerts_created + ' alertas'
-      );
+      setDemoStep('Cargando empleados, recibos y transacciones...');
+      const result = await api.post<{
+        status: string;
+        employees?: number;
+        receipts?: number;
+        transactions?: number;
+        matches?: number;
+        alerts?: number;
+      }>('/demo/seed', {});
+      if (result.status === 'skipped') {
+        toast.info('La base de datos ya tiene datos');
+      } else {
+        toast.success(
+          `Demo cargado: ${result.employees} empleados, ${result.receipts} recibos, ${result.matches} matches, ${result.alerts} alertas`
+        );
+      }
     } catch {
       toast.error('Error cargando demo');
     } finally {
@@ -666,17 +668,10 @@ function AdminDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl">
-              <UserCheck className="w-5 h-5 text-indigo-500" />
+              <Shield className="w-5 h-5 text-indigo-500" />
               <div className="flex-1">
-                <p className="text-xs text-slate-400">Gerente (100-500 EUR)</p>
-                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_manager ?? 0}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
-              <Crown className="w-5 h-5 text-purple-500" />
-              <div className="flex-1">
-                <p className="text-xs text-slate-400">Director (&gt;500 EUR)</p>
-                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_director ?? 0}</p>
+                <p className="text-xs text-slate-400">Administrador (&ge;100 EUR)</p>
+                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_admin ?? 0}</p>
               </div>
             </div>
             <div className="text-center pt-1">

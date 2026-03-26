@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { setApiRole, setApiEmployeeId } from '@/lib/api';
 import type { Employee } from '@/types';
 
-type Role = 'employee' | 'manager' | 'admin';
+type Role = 'employee' | 'admin';
 
 interface RoleContextValue {
   role: Role;

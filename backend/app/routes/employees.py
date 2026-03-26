@@ -18,12 +18,12 @@ from app.schemas.schemas import (
 router = APIRouter()
 
 
-@router.get("/", response_model=list[EmployeeOut])
+@router.get("", response_model=list[EmployeeOut])
 def list_employees(db: Session = Depends(get_db)):
     return db.query(Employee).order_by(Employee.name).all()
 
 
-@router.post("/", response_model=EmployeeOut, status_code=201)
+@router.post("", response_model=EmployeeOut, status_code=201)
 def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
     existing = db.query(Employee).filter(Employee.email == payload.email).first()
     if existing:

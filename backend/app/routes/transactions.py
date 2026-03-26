@@ -80,7 +80,7 @@ def _build_mock_txns():
 MOCK_TRANSACTIONS = _build_mock_txns()
 
 
-@router.get("/", response_model=list[TransactionOut])
+@router.get("", response_model=list[TransactionOut])
 def list_transactions(limit: int = 100, db: Session = Depends(get_db)):
     return (
         db.query(BankTransaction)

@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.routes import alerts, analytics, employees, receipts, transactions
@@ -53,6 +54,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Disable Starlette's automatic trailing-slash redirects.
+# These redirects use the internal Docker hostname (backend:8000)
+# which the browser can't resolve when proxied through Next.js.
+app.router.redirect_slashes = False
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -70,6 +76,12 @@ app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 
 
+# Static files (receipt images, etc.)
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -82,12 +94,30 @@ def serve_dashboard():
     return JSONResponse({"error": "dashboard.html not found"}, status_code=404)
 
 
-@app.post("/api/v1/seed", tags=["demo"])
+@app.post("/api/v1/demo/seed", tags=["demo"])
 def seed_demo_data():
-    """Load demo employees and receipts into the database."""
+    """Load demo data (employees, receipts, transactions, alerts) into the database."""
     from scripts.seed_demo import seed
-    seed()
-    return {"status": "ok", "message": "Demo data seeded"}
+    result = seed()
+    return result or {"status": "ok"}
+
+
+@app.delete("/api/v1/demo/reset", tags=["demo"])
+def reset_demo_data():
+    """Clear all data from the database for a fresh start."""
+    from app.db.session import SessionLocal
+    from app.models.models import Alert, Match, BankTransaction, Receipt, Employee
+    db = SessionLocal()
+    try:
+        db.query(Alert).delete()
+        db.query(Match).delete()
+        db.query(BankTransaction).delete()
+        db.query(Receipt).delete()
+        db.query(Employee).delete()
+        db.commit()
+        return {"status": "ok", "message": "All data cleared"}
+    finally:
+        db.close()
 
 
 @app.exception_handler(Exception)

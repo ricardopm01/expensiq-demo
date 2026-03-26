@@ -74,7 +74,7 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
   const match = matches[0];
   const isPending = ['pending', 'review', 'flagged'].includes(receipt.status);
   const level = receipt.approval_level || 'auto';
-  const roleCanApprove = level === 'auto' || (level === 'manager' && (role === 'manager' || role === 'admin')) || (level === 'director' && role === 'admin');
+  const roleCanApprove = level === 'auto' || role === 'admin';
 
   const handleSave = async () => {
     setSaving(true);
@@ -455,7 +455,7 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
               </>
             ) : (
               <span className="text-xs text-amber-600">
-                Necesitas rol de {level === 'director' ? 'Director' : 'Gerente o superior'} para aprobar
+                Necesitas rol de Administrador para aprobar
               </span>
             )}
           </div>

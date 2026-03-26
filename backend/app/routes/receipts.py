@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
-@router.get("/", response_model=list[ReceiptOut])
+@router.get("", response_model=list[ReceiptOut])
 def list_receipts(
     status: Optional[str] = None,
     employee_id: Optional[str] = None,
@@ -239,21 +239,15 @@ def _calculate_approval_level(amount: float | None) -> str:
     """Determine approval level based on amount."""
     if amount is None or amount < 100:
         return "auto"
-    elif amount < 500:
-        return "manager"
-    else:
-        return "director"
+    return "admin"
 
 
 def _can_approve(role: str, level: str) -> bool:
     """Check if a role can approve a given level."""
     if level == "auto":
         return True
-    if level == "manager":
-        return role in ("manager", "admin")
-    if level == "director":
-        return role == "admin"
-    return False
+    # admin role can approve everything (including legacy manager/director levels)
+    return role == "admin"
 
 
 @router.post("/{receipt_id}/approve", response_model=ApproveRejectResult)

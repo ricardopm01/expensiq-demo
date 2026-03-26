@@ -35,8 +35,7 @@ export interface Receipt {
 
 export interface ApprovalSummary {
   pending_auto: number;
-  pending_manager: number;
-  pending_director: number;
+  pending_admin: number;
   approved_today: number;
 }
 
@@ -182,15 +181,16 @@ export const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: 
 };
 
 export const APPROVAL_LEVEL_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  auto:     { label: 'Auto (<100€)',       bg: 'bg-emerald-50',  text: 'text-emerald-700' },
-  manager:  { label: 'Gerente (100-500€)', bg: 'bg-indigo-50',   text: 'text-indigo-700'  },
-  director: { label: 'Director (>500€)',   bg: 'bg-purple-50',   text: 'text-purple-700'  },
+  auto:  { label: 'Auto (<100€)',   bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  admin: { label: 'Admin (≥100€)',  bg: 'bg-indigo-50',  text: 'text-indigo-700'  },
+  // Legacy compat for existing DB rows
+  manager:  { label: 'Admin (≥100€)', bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  director: { label: 'Admin (≥100€)', bg: 'bg-indigo-50', text: 'text-indigo-700' },
 };
 
 export const ROLE_LABELS: Record<string, string> = {
   employee: 'Empleado',
-  manager: 'Gerente',
-  admin: 'Director',
+  admin: 'Administrador',
 };
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {

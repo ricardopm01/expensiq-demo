@@ -31,7 +31,7 @@ class Employee(Base):
     monthly_budget = Column(Numeric(10, 2))
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
-    receipts = relationship("Receipt", back_populates="employee")
+    receipts = relationship("Receipt", back_populates="employee", foreign_keys="[Receipt.employee_id]")
     alerts = relationship("Alert", back_populates="employee")
 
 

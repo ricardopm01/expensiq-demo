@@ -101,8 +101,10 @@ def get_approval_summary(db: Session = Depends(get_db)):
     base = db.query(Receipt).filter(Receipt.status.in_(pending_statuses))
 
     pending_auto = base.filter(Receipt.approval_level == "auto").count()
-    pending_manager = base.filter(Receipt.approval_level == "manager").count()
-    pending_director = base.filter(Receipt.approval_level == "director").count()
+    # Count admin + legacy manager/director as one bucket
+    pending_admin = base.filter(
+        Receipt.approval_level.in_(["admin", "manager", "director"])
+    ).count()
 
     # Approved today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -112,8 +114,7 @@ def get_approval_summary(db: Session = Depends(get_db)):
 
     return {
         "pending_auto": pending_auto,
-        "pending_manager": pending_manager,
-        "pending_director": pending_director,
+        "pending_admin": pending_admin,
         "approved_today": approved_today,
     }
 
