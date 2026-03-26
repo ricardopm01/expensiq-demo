@@ -1,10 +1,10 @@
 """ExpensIQ — Analytics routes."""
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
+from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -90,6 +90,61 @@ def get_top_spenders(db: Session = Depends(get_db)):
             total_month=float(r.total_month),
             receipt_count=r.receipt_count,
         )
+        for r in results
+    ]
+
+
+@router.get("/approval-summary")
+def get_approval_summary(db: Session = Depends(get_db)):
+    """Counts of pending receipts by approval level."""
+    pending_statuses = ["pending", "review", "flagged"]
+    base = db.query(Receipt).filter(Receipt.status.in_(pending_statuses))
+
+    pending_auto = base.filter(Receipt.approval_level == "auto").count()
+    pending_manager = base.filter(Receipt.approval_level == "manager").count()
+    pending_director = base.filter(Receipt.approval_level == "director").count()
+
+    # Approved today
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    approved_today = db.query(Receipt).filter(
+        Receipt.approved_at >= today_start
+    ).count()
+
+    return {
+        "pending_auto": pending_auto,
+        "pending_manager": pending_manager,
+        "pending_director": pending_director,
+        "approved_today": approved_today,
+    }
+
+
+@router.get("/monthly-trend")
+def get_monthly_trend(db: Session = Depends(get_db)):
+    """Monthly spending trend for the last 6 months."""
+    results = (
+        db.query(
+            extract("year", Receipt.date).label("year"),
+            extract("month", Receipt.date).label("month"),
+            func.coalesce(func.sum(Receipt.amount), 0).label("total"),
+            func.count(Receipt.id).label("count"),
+        )
+        .filter(Receipt.date.isnot(None), Receipt.amount.isnot(None))
+        .group_by(extract("year", Receipt.date), extract("month", Receipt.date))
+        .order_by(extract("year", Receipt.date), extract("month", Receipt.date))
+        .all()
+    )
+
+    months_es = {
+        1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun",
+        7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic",
+    }
+
+    return [
+        {
+            "month": f"{months_es.get(int(r.month), '?')} {int(r.year)}",
+            "total": float(r.total),
+            "count": r.count,
+        }
         for r in results
     ]
 

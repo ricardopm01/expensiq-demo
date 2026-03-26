@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Sidebar } from '@/components/sidebar';
 import { Header } from '@/components/header';
 import { ToastProvider } from '@/components/toast';
+import { RoleProvider } from '@/lib/role-context';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
     <html lang="es">
       <body>
         <ToastProvider>
+          <RoleProvider>
           <Sidebar />
           <div className="ml-60 flex flex-col min-h-screen">
             <Header />
@@ -46,6 +48,7 @@ export default function RootLayout({
               </div>
             </footer>
           </div>
+          </RoleProvider>
         </ToastProvider>
       </body>
     </html>

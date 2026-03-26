@@ -56,6 +56,10 @@ class ReceiptOut(BaseModel):
     notes: Optional[str] = None
     payment_method: Optional[str] = None
     line_items: Optional[str] = None
+    approval_level: Optional[str] = None
+    approved_by: Optional[UUID] = None
+    approved_at: Optional[datetime] = None
+    approver_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

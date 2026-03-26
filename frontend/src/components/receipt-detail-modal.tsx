@@ -26,8 +26,9 @@ import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { StatusBadge, Btn, Spinner } from '@/components/ui';
 import { useToast } from '@/components/toast';
+import { useRole } from '@/lib/role-context';
 import type { Receipt, ReceiptMatch, Employee, ApproveRejectResult } from '@/types';
-import { CATEGORY_LABEL, PAYMENT_METHOD_LABEL } from '@/types';
+import { CATEGORY_LABEL, PAYMENT_METHOD_LABEL, APPROVAL_LEVEL_CONFIG } from '@/types';
 
 interface Props {
   receipt: Receipt;
@@ -47,6 +48,7 @@ const PAYMENT_ICONS: Record<string, typeof CreditCard> = {
 
 export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props) {
   const toast = useToast();
+  const { role } = useRole();
   const [matches, setMatches] = useState<ReceiptMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -70,7 +72,9 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
 
   const emp = empMap[String(receipt.employee_id)];
   const match = matches[0];
-  const canApprove = ['pending', 'review', 'flagged'].includes(receipt.status);
+  const isPending = ['pending', 'review', 'flagged'].includes(receipt.status);
+  const level = receipt.approval_level || 'auto';
+  const roleCanApprove = level === 'auto' || (level === 'manager' && (role === 'manager' || role === 'admin')) || (level === 'director' && role === 'admin');
 
   const handleSave = async () => {
     setSaving(true);
@@ -288,6 +292,33 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
               )}
             </div>
 
+            {/* Approval Info */}
+            {receipt.approval_level && (
+              <div className="px-3 py-2 bg-slate-50 rounded-xl space-y-1.5">
+                <span className="text-xs text-slate-400">Nivel de aprobacion</span>
+                <div>
+                  {(() => {
+                    const lc = APPROVAL_LEVEL_CONFIG[receipt.approval_level] || APPROVAL_LEVEL_CONFIG.auto;
+                    return (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lc.bg} ${lc.text}`}>
+                        {lc.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+                {receipt.approved_at && (
+                  <p className="text-xs text-emerald-600">
+                    Aprobado {receipt.approver_name ? `por ${receipt.approver_name}` : ''} el {fmt.date(receipt.approved_at)}
+                  </p>
+                )}
+                {isPending && !roleCanApprove && (
+                  <p className="text-xs text-amber-600">
+                    Tu rol actual no tiene permiso para aprobar este nivel
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Save button (edit mode) */}
             {editing && (
               <div className="flex gap-2 mt-3">
@@ -411,14 +442,22 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
         </div>
 
         {/* Approve / Reject Footer */}
-        {canApprove && !editing && (
+        {isPending && !editing && (
           <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-            <Btn variant="danger" size="sm" onClick={handleReject}>
-              <XCircle className="w-4 h-4" /> Rechazar
-            </Btn>
-            <Btn variant="primary" size="sm" onClick={handleApprove}>
-              <CheckCircle className="w-4 h-4" /> Aprobar
-            </Btn>
+            {roleCanApprove ? (
+              <>
+                <Btn variant="danger" size="sm" onClick={handleReject}>
+                  <XCircle className="w-4 h-4" /> Rechazar
+                </Btn>
+                <Btn variant="primary" size="sm" onClick={handleApprove}>
+                  <CheckCircle className="w-4 h-4" /> Aprobar
+                </Btn>
+              </>
+            ) : (
+              <span className="text-xs text-amber-600">
+                Necesitas rol de {level === 'director' ? 'Director' : 'Gerente o superior'} para aprobar
+              </span>
+            )}
           </div>
         )}
       </div>

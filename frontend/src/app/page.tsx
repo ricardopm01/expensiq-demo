@@ -9,9 +9,12 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
 } from 'recharts';
 import {
   Wallet,
@@ -20,12 +23,16 @@ import {
   AlertTriangle,
   Zap,
   FolderOpen,
+  TrendingUp,
+  Crown,
+  UserCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { Card, KPICard, SectionHeader, Btn, EmptyState, PageLoading } from '@/components/ui';
 import { useToast } from '@/components/toast';
-import type { Summary, CategoryBreakdown, TopSpender, Alert } from '@/types';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
 export default function DashboardPage() {
@@ -35,6 +42,8 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState<CategoryBreakdown[]>([]);
   const [spenders, setSpenders] = useState<TopSpender[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [trend, setTrend] = useState<MonthlyTrend[]>([]);
+  const [approvalSummary, setApprovalSummary] = useState<ApprovalSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoStep, setDemoStep] = useState('');
@@ -42,16 +51,20 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, c, sp, a] = await Promise.all([
+      const [s, c, sp, a, t, as_] = await Promise.all([
         api.get<Summary>('/analytics/summary'),
         api.get<CategoryBreakdown[]>('/analytics/categories'),
         api.get<TopSpender[]>('/analytics/top-spenders'),
         api.get<Alert[]>('/alerts?resolved=false'),
+        api.get<MonthlyTrend[]>('/analytics/monthly-trend'),
+        api.get<ApprovalSummary>('/analytics/approval-summary'),
       ]);
       setSummary(s);
       setCategories(Array.isArray(c) ? c : []);
       setSpenders(Array.isArray(sp) ? sp : []);
       setAlerts(Array.isArray(a) ? a.slice(0, 5) : []);
+      setTrend(Array.isArray(t) ? t : []);
+      setApprovalSummary(as_);
     } catch {
       toast.error('Error cargando datos del dashboard');
     } finally {
@@ -354,6 +367,145 @@ export default function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {/* Monthly Trend + Approval Summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Monthly Trend AreaChart */}
+        <Card hover className="lg:col-span-2 p-5">
+          <SectionHeader
+            title="Tendencia Mensual"
+            subtitle="Gasto por mes (ultimos 6 meses)"
+          />
+          {trend.length === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="w-12 h-12" />}
+              title="Sin datos"
+              desc="Carga datos de demo para ver la tendencia."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={trend} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={45}
+                />
+                <Tooltip
+                  formatter={(value) => [fmt.money(Number(value)), 'Gasto']}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#6366F1"
+                  strokeWidth={2.5}
+                  fill="url(#trendGrad)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        {/* Approval Summary Panel */}
+        <Card hover className="p-5">
+          <SectionHeader
+            title="Aprobaciones"
+            subtitle="Pendientes por nivel"
+            action={
+              <Btn variant="ghost" size="sm" onClick={() => router.push('/approvals')}>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Btn>
+            }
+          />
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+              <Zap className="w-5 h-5 text-emerald-500" />
+              <div className="flex-1">
+                <p className="text-xs text-slate-400">Auto (&lt;100 EUR)</p>
+                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_auto ?? 0}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl">
+              <UserCheck className="w-5 h-5 text-indigo-500" />
+              <div className="flex-1">
+                <p className="text-xs text-slate-400">Gerente (100-500 EUR)</p>
+                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_manager ?? 0}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
+              <Crown className="w-5 h-5 text-purple-500" />
+              <div className="flex-1">
+                <p className="text-xs text-slate-400">Director (&gt;500 EUR)</p>
+                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_director ?? 0}</p>
+              </div>
+            </div>
+            <div className="text-center pt-1">
+              <span className="text-xs text-emerald-600 font-medium">
+                {approvalSummary?.approved_today ?? 0} aprobados hoy
+              </span>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Employee Grid */}
+      {spenders.length > 0 && (
+        <Card className="p-5">
+          <SectionHeader
+            title="Empleados — Gasto vs Presupuesto"
+            subtitle="Top empleados por volumen de gasto"
+          />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {spenders.slice(0, 8).map((s) => {
+              const budget = 3000; // Default budget for display
+              const pct = Math.min((s.total_month / budget) * 100, 100);
+              const overBudget = s.total_month > budget;
+              return (
+                <div
+                  key={s.employee_id}
+                  className="p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors"
+                  onClick={() => router.push(`/employees/${s.employee_id}`)}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">
+                      {s.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-700 truncate">{s.name.split(' ')[0]}</p>
+                      <p className="text-[10px] text-slate-400">{s.department || 'General'}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 mb-1">{fmt.money(s.total_month)}</p>
+                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${overBudget ? 'bg-red-500' : 'bg-indigo-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {s.receipt_count} recibos
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Recent Alerts */}
       <Card className="p-5">

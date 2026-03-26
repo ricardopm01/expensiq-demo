@@ -27,6 +27,23 @@ export interface Receipt {
   notes: string | null;
   payment_method: string | null;
   line_items: string | null;
+  approval_level: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  approver_name: string | null;
+}
+
+export interface ApprovalSummary {
+  pending_auto: number;
+  pending_manager: number;
+  pending_director: number;
+  approved_today: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  total: number;
+  count: number;
 }
 
 export interface ApproveRejectResult {
@@ -162,6 +179,18 @@ export const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: 
   medium:   { label: 'Media',    bg: 'bg-amber-50',   text: 'text-amber-700'  },
   high:     { label: 'Alta',     bg: 'bg-orange-50',  text: 'text-orange-700' },
   critical: { label: 'Critica',  bg: 'bg-red-50',     text: 'text-red-700'    },
+};
+
+export const APPROVAL_LEVEL_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  auto:     { label: 'Auto (<100€)',       bg: 'bg-emerald-50',  text: 'text-emerald-700' },
+  manager:  { label: 'Gerente (100-500€)', bg: 'bg-indigo-50',   text: 'text-indigo-700'  },
+  director: { label: 'Director (>500€)',   bg: 'bg-purple-50',   text: 'text-purple-700'  },
+};
+
+export const ROLE_LABELS: Record<string, string> = {
+  employee: 'Empleado',
+  manager: 'Gerente',
+  admin: 'Director',
 };
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {

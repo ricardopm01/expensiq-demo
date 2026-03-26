@@ -1,7 +1,18 @@
 const BASE = '/api/v1';
 
+let _currentRole = 'admin';
+
+export function setApiRole(role: string) {
+  _currentRole = role;
+}
+
+function roleHeaders(): Record<string, string> {
+  return { 'X-User-Role': _currentRole };
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, options);
+  const headers = { ...roleHeaders(), ...(options?.headers || {}) };
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
   }
@@ -26,7 +37,7 @@ export const api = {
     }),
 
   del: (path: string) =>
-    fetch(`${BASE}${path}`, { method: 'DELETE' }).then((r) => r.ok),
+    fetch(`${BASE}${path}`, { method: 'DELETE', headers: roleHeaders() }).then((r) => r.ok),
 
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: 'POST', body: formData }),

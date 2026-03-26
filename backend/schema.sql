@@ -45,7 +45,10 @@ CREATE TABLE receipts (
     ocr_processed_at TIMESTAMPTZ,
     notes            TEXT,
     payment_method   VARCHAR(20),
-    line_items       TEXT
+    line_items       TEXT,
+    approval_level   VARCHAR(20),
+    approved_by      UUID REFERENCES employees(id) ON DELETE SET NULL,
+    approved_at      TIMESTAMPTZ
 );
 
 CREATE INDEX idx_receipts_employee ON receipts(employee_id);

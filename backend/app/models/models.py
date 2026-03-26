@@ -56,13 +56,21 @@ class Receipt(Base):
     notes = Column(Text)
     payment_method = Column(String(20))
     line_items = Column(Text)
+    approval_level = Column(String(20))  # auto, manager, director
+    approved_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
+    approved_at = Column(DateTime(timezone=True))
 
-    employee = relationship("Employee", back_populates="receipts")
+    employee = relationship("Employee", back_populates="receipts", foreign_keys=[employee_id])
+    approver = relationship("Employee", foreign_keys=[approved_by])
     matches = relationship("Match", back_populates="receipt")
 
     @property
     def employee_name(self):
         return self.employee.name if self.employee else None
+
+    @property
+    def approver_name(self):
+        return self.approver.name if self.approver else None
 
 
 class BankTransaction(Base):

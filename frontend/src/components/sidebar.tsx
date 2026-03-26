@@ -8,6 +8,7 @@ import {
   CreditCard,
   Bell,
   Users,
+  CheckSquare,
   Zap,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/receipts', label: 'Recibos', icon: Receipt },
   { href: '/transactions', label: 'Transacciones', icon: CreditCard },
   { href: '/alerts', label: 'Alertas', icon: Bell },
+  { href: '/approvals', label: 'Aprobaciones', icon: CheckSquare },
   { href: '/employees', label: 'Empleados', icon: Users },
 ];
 

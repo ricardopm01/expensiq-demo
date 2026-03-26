@@ -7,7 +7,7 @@ import uuid
 from datetime import date as DateType, datetime
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -235,15 +235,51 @@ def update_receipt(receipt_id: str, data: ReceiptUpdate, db: Session = Depends(g
     return receipt
 
 
+def _calculate_approval_level(amount: float | None) -> str:
+    """Determine approval level based on amount."""
+    if amount is None or amount < 100:
+        return "auto"
+    elif amount < 500:
+        return "manager"
+    else:
+        return "director"
+
+
+def _can_approve(role: str, level: str) -> bool:
+    """Check if a role can approve a given level."""
+    if level == "auto":
+        return True
+    if level == "manager":
+        return role in ("manager", "admin")
+    if level == "director":
+        return role == "admin"
+    return False
+
+
 @router.post("/{receipt_id}/approve", response_model=ApproveRejectResult)
-def approve_receipt(receipt_id: str, db: Session = Depends(get_db)):
+def approve_receipt(
+    receipt_id: str,
+    db: Session = Depends(get_db),
+    x_user_role: str = Header(default="admin", alias="X-User-Role"),
+):
     receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     if receipt.status not in ("pending", "review", "flagged"):
         raise HTTPException(status_code=409, detail=f"Cannot approve receipt with status '{receipt.status}'")
+
+    level = receipt.approval_level or _calculate_approval_level(float(receipt.amount) if receipt.amount else None)
+    if not _can_approve(x_user_role, level):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{x_user_role}' cannot approve level '{level}'"
+        )
+
     has_match = db.query(Match).filter(Match.receipt_id == receipt_id).first()
     receipt.status = "matched" if has_match else "review"
+    receipt.approved_at = datetime.utcnow()
+    if not receipt.approval_level:
+        receipt.approval_level = level
     db.commit()
     return ApproveRejectResult(status=receipt.status, message="Receipt approved")
 
@@ -303,6 +339,11 @@ def _process_receipt_ocr(receipt_id: str, file_content: bytes, filename: str):
             categorizer = ExpenseCategorizer()
             receipt.category = categorizer.categorize(receipt.merchant)
             receipt.status = "pending"
+
+            # Calculate approval level
+            receipt.approval_level = _calculate_approval_level(
+                float(receipt.amount) if receipt.amount else None
+            )
 
             logger.info("OCR processed receipt %s: %s %s %s",
                         receipt_id, receipt.merchant, receipt.amount, receipt.currency)

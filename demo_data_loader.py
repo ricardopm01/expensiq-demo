@@ -64,6 +64,16 @@ RECEIPT_TEMPLATES = [
 ]
 
 
+def calc_approval_level(amount):
+    """Determine approval level based on amount."""
+    if amount is None or amount < 100:
+        return "auto"
+    elif amount < 500:
+        return "manager"
+    else:
+        return "director"
+
+
 def random_date_in_range(start: date, end: date) -> date:
     delta = (end - start).days
     return start + timedelta(days=random.randint(0, delta))
@@ -122,6 +132,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
                 "ocr_confidence": confidence,
                 "ocr_provider": "mock",
                 "payment_method": random.choice(["card", "card", "card", "cash", "transfer"]),
+                "approval_level": calc_approval_level(amount),
             })
             receipt_idx += 1
 
@@ -142,6 +153,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
         "ocr_confidence": 0.94,
         "ocr_provider": "mock",
         "payment_method": "card",
+        "approval_level": "director",
     })
 
     # ── ANOMALY: Rapid repeat (3 receipts same merchant in 24h) ──
@@ -162,6 +174,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
             "ocr_confidence": 0.91,
             "ocr_provider": "mock",
             "payment_method": "card",
+            "approval_level": calc_approval_level(round(random.uniform(15, 35), 2)),
         })
 
     # ── ANOMALY: Duplicate receipts ───────────────────────────────
@@ -184,6 +197,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
             "ocr_confidence": 0.95,
             "ocr_provider": "mock",
             "payment_method": "card",
+            "approval_level": "auto",
         })
 
     # ── ANOMALY: Weekend expense ──────────────────────────────────
@@ -202,6 +216,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
         "ocr_confidence": 0.72,
         "ocr_provider": "mock",
         "payment_method": "cash",
+        "approval_level": "manager",
     })
 
     # ── ANOMALY: Low OCR confidence receipts ──────────────────────
@@ -220,6 +235,7 @@ def generate_demo_json(output_path: str = "demo_data.json"):
         "ocr_confidence": 0.18,
         "ocr_provider": "mock",
         "payment_method": None,
+        "approval_level": "auto",
     })
 
     # ── Bank Transactions ─────────────────────────────────────────
