@@ -8,8 +8,11 @@
 
 **ExpensIQ** es una demo para cliente de un sistema de gestión de gastos con IA.
 
-**Stack**: FastAPI (Python) + PostgreSQL + MinIO + Metabase + React 18 (SPA en un solo HTML)
-**Infra**: Docker Compose (4 servicios)
+**Stack**:
+- **Backend**: FastAPI (Python) + PostgreSQL + MinIO + Metabase
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + Recharts
+- **Infra**: Docker Compose (5 servicios: db, minio, backend, frontend, metabase)
+
 **Ramas activas**: `main` (producción demo), feature branches para cambios
 
 ---
@@ -66,11 +69,16 @@ Eso es todo. Los servicios tardan ~30s en estar listos la primera vez (descarga 
 ### 5. Verificar que funciona
 
 ```bash
+# Backend
 curl http://localhost:8000/health
 # → {"status":"ok"}
+
+# Frontend
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3000
+# → 200
 ```
 
-Abre http://localhost:8000 en el navegador.
+Abre http://localhost:3000 en el navegador para el frontend Next.js.
 
 ### 6. Sembrar datos demo
 
@@ -82,12 +90,13 @@ python demo_data_loader.py
 
 ## URLs del proyecto
 
-| Servicio | URL | Credenciales |
+| Servicio | URL | Descripción |
 |---|---|---|
-| Dashboard | http://localhost:8000 | — |
-| API Docs (Swagger) | http://localhost:8000/docs | — |
-| MinIO Console | http://localhost:9001 | minioadmin / minioadmin |
-| Metabase BI | http://localhost:3100 | (configurar en primera visita) |
+| Frontend (Next.js) | http://localhost:3000 | Interfaz principal |
+| Backend API | http://localhost:8000 | API + legacy dashboard |
+| API Docs (Swagger) | http://localhost:8000/docs | Documentación interactiva |
+| MinIO Console | http://localhost:9001 | Almacenamiento (minioadmin/minioadmin) |
+| Metabase BI | http://localhost:3100 | Business Intelligence |
 
 ---
 
@@ -108,9 +117,22 @@ docker compose down
 ### Ver logs
 
 ```bash
-docker compose logs -f backend   # solo backend
-docker compose logs -f           # todos los servicios
+docker compose logs -f backend    # solo backend
+docker compose logs -f frontend   # solo frontend
+docker compose logs -f            # todos los servicios
 ```
+
+### Desarrollo frontend (sin Docker)
+
+Si prefieres trabajar directamente en el frontend sin Docker:
+
+```bash
+cd frontend
+npm install    # solo la primera vez
+npm run dev    # → http://localhost:3000
+```
+
+Requiere que el backend esté corriendo (via Docker o directamente).
 
 ---
 
@@ -134,16 +156,17 @@ git push origin feat/nombre-de-tu-feature
 git pull origin main
 ```
 
-### Regla 3 — Editar siempre `backend/dashboard.html`
+### Regla 3 — Frontend en `frontend/`
 
-El frontend es un solo archivo React. La ubicación canónica es `backend/dashboard.html`.
-Tras cada cambio, copiar:
+El frontend es una app Next.js 14 en el directorio `frontend/`. Edita los archivos dentro de `frontend/src/`.
 
-```bash
-cp backend/dashboard.html dashboard.html
-```
+**NO editar** `backend/dashboard.html` — es el frontend legacy (deprecated).
 
-(El `start.sh` no lo hace automáticamente, es responsabilidad del dev.)
+Estructura principal:
+- Páginas: `frontend/src/app/` (cada carpeta es una ruta)
+- Componentes: `frontend/src/components/`
+- API client: `frontend/src/lib/api.ts`
+- Tipos: `frontend/src/types/index.ts`
 
 ---
 
@@ -152,15 +175,15 @@ cp backend/dashboard.html dashboard.html
 Para que Ricardo vea tu estado sin hacer deploy:
 
 ```bash
-# Instalar cloudflared
+# Instalar cloudflared (si no lo tienes)
 curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz" \
   -o /tmp/cloudflared.tgz && tar -xzf /tmp/cloudflared.tgz -C /tmp && \
   mv /tmp/cloudflared ~/.local/bin/ && chmod +x ~/.local/bin/cloudflared
 
-# Abrir tunnel (mientras el stack esté corriendo)
-cloudflared tunnel --url http://localhost:8000
+# Compartir el frontend
+cloudflared tunnel --url http://localhost:3000
 # → genera una URL tipo https://xxxx.trycloudflare.com
-# Comparte esa URL por WhatsApp/Slack y podrá ver tu dashboard en tiempo real
+# Comparte esa URL por WhatsApp/Slack
 ```
 
 ---
@@ -179,7 +202,7 @@ Claude leerá automáticamente el `CLAUDE.md` de la raíz y tendrá todo el cont
 Comandos útiles al trabajar con Claude:
 - Para tareas complejas (3+ pasos): Claude entra en modo plan automáticamente
 - Para buscar código específico: Claude usa subagentes para no consumir contexto
-- Para aplicar cambios al frontend: Claude edita `backend/dashboard.html` y copia al root
+- Para aplicar cambios al frontend: Claude edita archivos en `frontend/src/`
 
 ---
 
@@ -187,19 +210,24 @@ Comandos útiles al trabajar con Claude:
 
 | Fase | Estado | Descripción |
 |---|---|---|
-| 1 | **COMPLETADA** | Perfiles empleado, modal recibo, filtros, charts clickables |
-| 2 | Pendiente | Approve/reject, edición OCR, export CSV, donut charts por empleado |
-| 3 | Pendiente | n8n workflows, Google Vision OCR, Salt Edge banco |
-| 4 | Pendiente | JWT auth, RBAC, migración a Vite+TypeScript |
-| 5 | Pendiente | Producción (HTTPS, backups, monitorización) |
+| 1 | **COMPLETADA** | Backend completo, 14+ endpoints, OCR mock, reconciliación |
+| A | **COMPLETADA** | Frontend Next.js 14 (reemplaza SPA monolítico) |
+| B | Pendiente | Claude Vision OCR + detección anomalías con IA |
+| C | Pendiente | Workflow aprobación multinivel + dashboard enriquecido |
+| D | Pendiente | Import CSV bancario + predicción presupuesto IA |
+| E | Pendiente | Pulido visual + datos demo definitivos |
 
 ---
 
 ## Problemas frecuentes
 
-**El dashboard no refleja mis cambios:**
-→ Asegúrate de haber editado `backend/dashboard.html` y haber copiado al root.
-→ Hard refresh en el navegador: Cmd+Shift+R
+**El frontend no carga:**
+→ Verifica que el servicio frontend está corriendo: `docker compose logs frontend`
+→ Si trabajas sin Docker: `cd frontend && npm run dev`
+
+**La API no responde desde el frontend:**
+→ El proxy está en `frontend/next.config.mjs` — redirige `/api/*` a `localhost:8000`
+→ Verifica: `curl http://localhost:8000/health`
 
 **Docker no arranca:**
 → Si usas Colima: `export LIMA_DATA_HOME="$HOME/.local/share" && colima start ...`
@@ -207,7 +235,10 @@ Comandos útiles al trabajar con Claude:
 
 **Error "exec format error" en contenedor:**
 → Asegúrate de que `DOCKER_DEFAULT_PLATFORM=linux/amd64` está en tu `.env`
-→ O ejecuta: `export DOCKER_DEFAULT_PLATFORM=linux/amd64 && docker compose up -d`
+
+**Error de tipos en el frontend:**
+→ `cd frontend && npx next build` para ver errores de TypeScript
+→ Los tipos del frontend deben coincidir con los schemas Pydantic del backend
 
 **La API no responde:**
 → `docker compose logs backend` para ver el error

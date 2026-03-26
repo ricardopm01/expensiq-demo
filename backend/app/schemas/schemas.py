@@ -54,6 +54,8 @@ class ReceiptOut(BaseModel):
     status: str = "pending"
     ocr_confidence: Optional[float] = None
     notes: Optional[str] = None
+    payment_method: Optional[str] = None
+    line_items: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -81,6 +83,7 @@ class AlertOut(BaseModel):
     receipt_id: Optional[UUID] = None
     alert_type: str
     description: str
+    severity: str = "medium"
     is_read: bool = False
     resolved: bool = False
     created_at: Optional[datetime] = None

@@ -17,10 +17,11 @@ Dos desarrolladores colaboran en él: Ricardo Pichardo (Edrai Solutions) y su so
 | Base de datos | PostgreSQL 15 |
 | Almacenamiento | MinIO (S3-compatible) |
 | BI | Metabase |
-| Frontend | React 18 SPA (CDN) + Tailwind CSS (CDN) + Chart.js — un solo `dashboard.html` |
-| Infraestructura | Docker Compose |
-| Proveedor OCR | Mock (demo) — Google Vision en Fase 3 |
-| Banco | Mock (demo) — Salt Edge en Fase 3 |
+| Frontend | Next.js 14 + TypeScript + Tailwind CSS + Recharts (en `frontend/`) |
+| Frontend (legacy) | React 18 SPA (CDN) en `backend/dashboard.html` (deprecated, no editar) |
+| Infraestructura | Docker Compose (5 servicios: db, minio, backend, frontend, metabase) |
+| Proveedor OCR | Mock (demo) — Claude Vision en Fase B |
+| Banco | Mock (demo) |
 
 ---
 
@@ -41,7 +42,8 @@ DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d --build
 ```
 
 **URLs:**
-- Dashboard: http://localhost:8000
+- Frontend (Next.js): http://localhost:3000
+- Backend API / Legacy UI: http://localhost:8000
 - API Docs: http://localhost:8000/docs
 - MinIO Console: http://localhost:9001 (minioadmin/minioadmin)
 - Metabase: http://localhost:3100
@@ -50,96 +52,152 @@ DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d --build
 
 ---
 
-## Regla crítica: dashboard.html tiene DOS ubicaciones
+## Frontend — Next.js 14
 
-El bind mount de Docker no sincroniza la raíz del proyecto con el contenedor.
+El frontend principal es una app Next.js 14 en `frontend/`. Reemplaza al antiguo SPA monolítico (`dashboard.html`).
 
-**Siempre edita:** `backend/dashboard.html`
-**Copia tras cada cambio:** `cp backend/dashboard.html dashboard.html`
+### Desarrollo local (sin Docker)
 
-O en sentido contrario (si editas el root): `cp dashboard.html backend/dashboard.html`
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3000
+```
 
-El `main.py` sirve desde `/app/dashboard.html` → que mapea a `backend/dashboard.html`.
+El proxy API está configurado en `next.config.mjs` — redirige `/api/*` a `http://localhost:8000/api/*`.
+
+### Estructura del frontend
+
+```
+frontend/
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx              ← Layout global (sidebar + header + toast + footer)
+│   │   ├── page.tsx                ← Dashboard (KPIs, donut categorías, barras top spenders, alertas)
+│   │   ├── receipts/page.tsx       ← Upload + filtros avanzados + tabla + modal detalle
+│   │   ├── transactions/page.tsx   ← Sync banco + conciliación + tabla transacciones
+│   │   ├── alerts/page.tsx         ← Lista alertas con resolve/markRead
+│   │   ├── employees/page.tsx      ← Directorio empleados + KPIs
+│   │   └── employees/[id]/page.tsx ← Perfil: avatar, KPIs, budget bar, donut, accordion categorías
+│   ├── components/
+│   │   ├── ui.tsx                  ← Componentes reutilizables (Card, KPICard, Btn, StatusBadge, DataTable, etc.)
+│   │   ├── sidebar.tsx             ← Navegación con Lucide icons
+│   │   ├── header.tsx              ← Título de página + indicador estado sistema
+│   │   ├── toast.tsx               ← Context provider + notificaciones toast
+│   │   └── receipt-detail-modal.tsx← Modal: imagen recibo + OCR datos + match bancario
+│   ├── lib/
+│   │   ├── api.ts                  ← Fetch wrapper tipado contra FastAPI
+│   │   └── format.ts              ← Formateo: money, date, rel, pct
+│   └── types/
+│       └── index.ts               ← Interfaces TypeScript + lookup maps (categorías, estados, alertas)
+├── next.config.mjs                ← API proxy (rewrites /api/* → backend:8000)
+├── Dockerfile                     ← Para docker-compose
+├── tailwind.config.ts
+└── package.json
+```
+
+### Convenciones del frontend
+
+- **Todas las páginas son `'use client'`** — la app es interactiva, no usa server components
+- **Iconos**: Lucide React (no emojis ni SVG paths inline)
+- **Charts**: Recharts (PieChart, BarChart, ResponsiveContainer)
+- **Estilos**: Tailwind CSS con paleta slate/indigo/emerald
+- **API calls**: siempre via `api.get<Type>()`, `api.post<Type>()` desde `@/lib/api`
+- **Tipos**: importar desde `@/types` — mirrors exacto de Pydantic schemas del backend
 
 ---
 
-## Estructura de archivos clave
+## Backend — FastAPI
+
+### Estructura
 
 ```
-demo IA EXPENSE/
-├── CLAUDE.md                    ← este archivo
-├── PARTNER_GUIDE.md             ← onboarding del socio
-├── start.sh                     ← arranque en un comando
-├── docker-compose.yml
-├── .env.example                 ← plantilla (nunca el .env real)
-├── dashboard.html               ← COPIA del frontend (no editar aquí)
-├── backend/
-│   ├── dashboard.html           ← FUENTE DEL FRONTEND (editar aquí)
-│   ├── app/
-│   │   ├── main.py              ← entry point FastAPI
-│   │   ├── models/models.py     ← SQLAlchemy models
-│   │   ├── schemas/schemas.py   ← Pydantic schemas
-│   │   ├── routes/              ← endpoints por entidad
-│   │   │   ├── receipts.py
-│   │   │   ├── transactions.py
-│   │   │   ├── employees.py
-│   │   │   ├── analytics.py
-│   │   │   └── alerts.py
-│   │   ├── services/
-│   │   │   ├── categorizer.py   ← IA categorización gastos
-│   │   │   ├── reconciliation.py← conciliación bancaria
-│   │   │   └── storage.py       ← MinIO interface
-│   │   └── ocr/
-│   │       ├── mock_provider.py
-│   │       └── tesseract_provider.py
-│   ├── schema.sql               ← DDL completo (auto-aplicado en docker)
-│   └── requirements.txt
-└── demo_data_loader.py          ← script para sembrar datos demo
+backend/
+├── app/
+│   ├── main.py              ← Entry point FastAPI + routes registration
+│   ├── models/models.py     ← SQLAlchemy models (Employee, Receipt, BankTransaction, Match, Alert)
+│   ├── schemas/schemas.py   ← Pydantic schemas (request/response)
+│   ├── routes/
+│   │   ├── receipts.py      ← Upload, list, detail, matches, reconcile
+│   │   ├── transactions.py  ← Bank transactions, sync, reconcile-all
+│   │   ├── employees.py     ← CRUD + profile con category breakdown
+│   │   ├── analytics.py     ← Summary, categories, top-spenders
+│   │   └── alerts.py        ← List, resolve, mark-read
+│   ├── services/
+│   │   ├── categorizer.py   ← Categorización gastos + AnomalyDetector
+│   │   ├── reconciliation.py← Motor fuzzy matching (50% amount, 30% date, 20% merchant)
+│   │   └── storage.py       ← Interface MinIO S3
+│   └── ocr/
+│       ├── processor.py     ← Router OCR (despacha a mock o claude)
+│       ├── mock_provider.py ← OCR simulado para demo
+│       └── tesseract_provider.py ← OCR local (no usado en demo)
+├── schema.sql               ← DDL completo (auto-aplicado en docker-entrypoint)
+├── Dockerfile
+└── requirements.txt
 ```
+
+### Endpoints principales
+
+| Endpoint | Método | Descripción |
+|---|---|---|
+| `/health` | GET | Health check |
+| `/employees` | GET/POST | Listar/crear empleados |
+| `/employees/{id}` | GET/PATCH/DELETE | Perfil con desglose categorías |
+| `/receipts` | GET | Listar con filtros (employee, category, date, search, sort) |
+| `/receipts/upload` | POST | Upload imagen → OCR background → categorización |
+| `/receipts/{id}` | GET/DELETE | Detalle recibo individual |
+| `/receipts/{id}/matches` | GET | Transacciones matcheadas con confidence |
+| `/receipts/{id}/reconcile` | POST | Fuzzy match contra banco |
+| `/transactions` | GET | Listar transacciones bancarias |
+| `/transactions/sync-mock` | POST | Importar transacciones mock |
+| `/transactions/reconcile-all` | POST | Conciliación masiva |
+| `/analytics/summary` | GET | KPIs globales |
+| `/analytics/categories` | GET | Desglose por categoría |
+| `/analytics/top-spenders` | GET | Top 10 empleados por gasto |
+| `/alerts` | GET | Alertas (filtro: resolved=false) |
+| `/alerts/{id}/resolve` | PATCH | Resolver alerta |
+| `/alerts/{id}/read` | PATCH | Marcar como leída |
 
 ---
 
 ## Estado de fases
 
 ### Fase 1 — COMPLETADA
+- Backend completo: 14+ endpoints, OCR mock, reconciliación fuzzy, anomaly detection
+- Frontend legacy (`dashboard.html`): 6 páginas con charts y filtros
 
-**Backend:**
-- `GET /employees/{id}` — Perfil con desglose por categoría y recibos anidados
-- `GET /analytics/employee/{id}/categories` — Breakdown categorías por empleado
-- `GET /receipts/{id}/matches` — Transacciones matcheadas con confianza
-- Filtros avanzados en receipts: `category`, `date_from`, `date_to`, `search`, `sort_by`, `sort_order`
+### Fase A — COMPLETADA (migración frontend)
+- Next.js 14 + TypeScript + Tailwind CSS + Recharts
+- 6 páginas portadas: Dashboard, Receipts, Transactions, Alerts, Employees, Employee Profile
+- Componentes modulares, Lucide icons, toast notifications
+- API proxy configurado, Docker service añadido
+- Build verificado sin errores
 
-**Frontend:**
-- EmployeeProfilePage — KPIs + barra presupuesto + accordion categorías + recibos individuales
-- ReceiptDetailModal — imagen + OCR + comparación lado a lado con banco
-- Filtros avanzados ReceiptsPage — empleado, categoría, fechas, búsqueda merchant
-- Charts clickables — donut → filtro categoría, barras → perfil empleado
-- Navegación con params entre páginas
+### Fase B — COMPLETADA
+- Claude Vision OCR real (`backend/app/ocr/claude_provider.py`) — activar con `OCR_PROVIDER=claude`
+- Detección anomalías con IA (`backend/app/services/ai_anomaly.py`) + endpoint `POST /alerts/ai-scan`
+- Schema updates: severity en alerts, payment_method y line_items en receipts
+- Migración Alembic 0002 (severity, payment_method, line_items)
+- Seed data mejorado: 8 empleados, 81 recibos, 6 meses, anomalías intencionales
+- Frontend: approve/reject, edición inline, export CSV, severity badges, AI Scan button
+- PATCH /receipts/{id} (edición OCR) — backend por Marcos, frontend integrado
+- Line items y payment method en receipt detail modal
 
-**Infraestructura:**
-- Git repo inicializado (rama `main`)
-- Colima (runtime Docker, reemplaza Docker Desktop) + cloudflared instalados
-- docker-compose cross-platform (sin ARM64 hardcodeado)
+### Fase C — PENDIENTE (próxima)
+- Workflow aprobación multinivel (auto <100, manager 100-500, director 500+)
+- Dashboard enriquecido (tendencia 6 meses, grid empleados, panel alertas)
+- Selector de rol (simulated auth)
 
-### Fase 2 — PENDIENTE (próxima)
-- `PATCH /receipts/{id}` — Editar datos OCR
-- Approve/reject recibos con flujo de aprobación
-- Exportar CSV de gastos
-- Migraciones con Alembic
-- Donut chart individual por empleado en EmployeeProfilePage
-- Limpieza de emojis antiprofesionales → reemplazar con iconos SVG
+### Fase D — PENDIENTE
+- Import CSV bancario (BBVA, Santander, CaixaBank, Sabadell)
+- Predicción presupuesto con IA
+- UI drag-and-drop para CSV
 
-### Fase 3 — PENDIENTE
-- Webhooks para n8n (6 workflows automáticos)
-- Google Vision OCR (real)
-- Salt Edge (conciliación bancaria real)
-
-### Fase 4 — PENDIENTE
-- JWT login, RBAC (employee / manager / admin)
-- Migración frontend a Vite + React + TypeScript
-
-### Fase 5 — PENDIENTE
-- docker-compose.prod.yml, HTTPS, backups, monitorización
+### Fase E — PENDIENTE
+- Pulido visual (skeletons, empty states, responsive)
+- Datos demo definitivos
+- Script de demo guiado
 
 ---
 
@@ -162,7 +220,10 @@ Binarios instalados en `~/.local/bin/` (ya en PATH):
 ## Compartir la demo (Cloudflare Tunnel)
 
 ```bash
-# URL temporal HTTPS (cambia al reiniciar)
+# Para el frontend Next.js
+cloudflared tunnel --url http://localhost:3000
+
+# Para el backend API directo
 cloudflared tunnel --url http://localhost:8000
 
 # → https://xxxxx.trycloudflare.com  (compartir con cliente o socio)
@@ -194,10 +255,11 @@ python demo_data_loader.py
 
 ## Decisiones de arquitectura confirmadas
 
-- **Frontend**: mantener `dashboard.html` (React CDN) hasta Fase 4, entonces migrar a Vite
-- **Auth**: no implementar hasta Fase 4 (demo no lo necesita)
-- **OCR**: mock hasta Fase 3
-- **Banco**: mock hasta Fase 3
+- **Frontend**: Next.js 14 en `frontend/` (migrado desde SPA monolítico en Fase A)
+- **Backend**: FastAPI se mantiene — ya tiene 14+ endpoints funcionando
+- **Auth**: no implementar hasta que sea necesario (demo usa selector de rol simulado)
+- **OCR**: mock por defecto, Claude Vision con `OCR_PROVIDER=claude` (Fase B)
+- **Banco**: mock por defecto, CSV import en Fase D
 - **Colima vs Docker Desktop**: usar Colima. Si falla, Docker Desktop como fallback
 - **GitHub**: repo privado, rama principal `main`, feature branches para cambios
 
@@ -205,10 +267,10 @@ python demo_data_loader.py
 
 ## Instrucciones para Claude
 
-- **Siempre leer `backend/dashboard.html`** al trabajar en el frontend (no el root `dashboard.html`)
-- **Siempre copiar** tras editar: `cp backend/dashboard.html dashboard.html`
-- El frontend es un **SPA de archivo único** — toda la UI está en ese fichero
+- **Frontend**: editar archivos en `frontend/src/` — es una app Next.js 14 estándar
+- **NO editar** `backend/dashboard.html` — es legacy, ya no se usa
 - Para cambios no triviales: usar modo plan antes de implementar
 - Para explorar el código: usar subagentes Explore (mantener contexto limpio)
-- Verificar que el backend responde antes de trabajar en frontend: `curl http://localhost:8000/health`
+- Verificar que el backend responde antes de trabajar: `curl http://localhost:8000/health`
+- Verificar build del frontend: `cd frontend && npx next build`
 - Los datos demo se siembran con `python demo_data_loader.py` desde la raíz del proyecto

@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str = "minioadmin"
 
     # OCR
-    OCR_PROVIDER: str = "mock"  # "mock" | "tesseract"
+    OCR_PROVIDER: str = "mock"  # "mock" | "tesseract" | "claude"
+    ANTHROPIC_API_KEY: str = ""
 
     # Banking
     BANKING_PROVIDER: str = "mock"

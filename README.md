@@ -11,39 +11,51 @@ cp .env.example .env
 # 2. Arrancar todos los servicios
 docker compose up --build
 
-# 3. Abrir el dashboard
-open http://localhost:8000
+# 3. Abrir el frontend
+open http://localhost:3000
 ```
 
 ## Servicios
 
 | Servicio | URL | Descripción |
 |----------|-----|-------------|
-| **Dashboard** | http://localhost:8000 | Interfaz principal |
+| **Frontend** | http://localhost:3000 | Interfaz Next.js 14 |
+| **Backend API** | http://localhost:8000 | FastAPI + Swagger |
 | **API Docs** | http://localhost:8000/docs | Documentación Swagger |
 | **MinIO Console** | http://localhost:9001 | Almacenamiento de archivos |
 | **Metabase** | http://localhost:3100 | Business Intelligence |
 
 ## Uso de la demo
 
-1. Abre http://localhost:8000
-2. Verifica que el indicador de la sidebar muestre "API conectada" (verde)
-3. Haz clic en **"Sincronizar banco y reconciliar"** en el Dashboard
-4. Explora las páginas: Recibos, Transacciones, Alertas, Empleados
+1. Abre http://localhost:3000
+2. Haz clic en **"Cargar Demo Completo"** en el Dashboard
+3. Explora las páginas: Recibos, Transacciones, Alertas, Empleados
 
 ## Arquitectura
 
 ```
-Frontend (React SPA) → FastAPI Backend → PostgreSQL
-                                       → MinIO (S3)
-                                       → Metabase (BI)
+Next.js 14 Frontend (:3000) → FastAPI Backend (:8000) → PostgreSQL
+                                                       → MinIO (S3)
+                                                       → Metabase (BI)
 ```
 
 ## Stack técnico
 
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts, Lucide React
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Pydantic
-- **Frontend**: React 18 (SPA servida por FastAPI)
 - **Base de datos**: PostgreSQL 15
 - **Almacenamiento**: MinIO (compatible S3)
-- **OCR**: Tesseract (local) / Mock (demo)
-- **Infraestructura**: Docker Compose
+- **OCR**: Mock (demo) / Claude Vision (próximamente)
+- **Infraestructura**: Docker Compose (5 servicios)
+
+## Desarrollo
+
+```bash
+# Frontend (desarrollo local)
+cd frontend && npm install && npm run dev
+
+# Backend (via Docker)
+docker compose up backend db minio
+```
+
+Ver `CLAUDE.md` para documentación completa y `PARTNER_GUIDE.md` para onboarding.

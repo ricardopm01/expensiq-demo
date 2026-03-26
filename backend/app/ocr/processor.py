@@ -14,7 +14,10 @@ class OCRProcessor:
     def process(self, file_content: bytes, filename: str) -> dict:
         provider = settings.OCR_PROVIDER
 
-        if provider == "tesseract":
+        if provider == "claude":
+            from app.ocr.claude_provider import ClaudeVisionProvider
+            return ClaudeVisionProvider().extract(file_content, filename)
+        elif provider == "tesseract":
             from app.ocr.tesseract_provider import TesseractProvider
             return TesseractProvider().extract(file_content, filename)
         else:

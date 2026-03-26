@@ -67,7 +67,8 @@ services:
       S3_ENDPOINT:        http://minio:9000
       AWS_ACCESS_KEY_ID:  minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
-      OCR_PROVIDER:       mock
+      OCR_PROVIDER:       ${OCR_PROVIDER:-mock}
+      ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY:-}
       BANKING_PROVIDER:   mock
       CORS_ORIGINS:       '["*"]'
     volumes:
@@ -76,6 +77,23 @@ services:
     ports:
       - "8000:8000"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --proxy-headers --forwarded-allow-ips=*
+
+  # ── Next.js Frontend ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: expensiq-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    ports:
+      - "3000:3000"
 
   # ── Metabase (BI / Analytics) ─────────────────────────────────
   metabase:

@@ -54,6 +54,8 @@ class Receipt(Base):
     ocr_provider = Column(String(50))
     ocr_processed_at = Column(DateTime(timezone=True))
     notes = Column(Text)
+    payment_method = Column(String(20))
+    line_items = Column(Text)
 
     employee = relationship("Employee", back_populates="receipts")
     matches = relationship("Match", back_populates="receipt")
@@ -102,6 +104,7 @@ class Alert(Base):
     receipt_id = Column(UUID(as_uuid=True), ForeignKey("receipts.id", ondelete="SET NULL"))
     alert_type = Column(String(50), nullable=False)
     description = Column(Text, nullable=False)
+    severity = Column(String(20), default="medium")
     is_read = Column(Boolean, nullable=False, default=False)
     resolved = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

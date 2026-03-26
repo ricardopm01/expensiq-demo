@@ -43,7 +43,9 @@ CREATE TABLE receipts (
     ocr_raw_text     TEXT,
     ocr_provider     VARCHAR(50),
     ocr_processed_at TIMESTAMPTZ,
-    notes            TEXT
+    notes            TEXT,
+    payment_method   VARCHAR(20),
+    line_items       TEXT
 );
 
 CREATE INDEX idx_receipts_employee ON receipts(employee_id);
@@ -84,6 +86,7 @@ CREATE TABLE alerts (
     receipt_id  UUID REFERENCES receipts(id) ON DELETE SET NULL,
     alert_type  VARCHAR(50) NOT NULL,
     description TEXT NOT NULL,
+    severity    VARCHAR(20) DEFAULT 'medium',
     is_read     BOOLEAN NOT NULL DEFAULT FALSE,
     resolved    BOOLEAN NOT NULL DEFAULT FALSE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),

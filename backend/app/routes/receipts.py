@@ -296,6 +296,8 @@ def _process_receipt_ocr(receipt_id: str, file_content: bytes, filename: str):
             receipt.ocr_confidence = result.get("confidence")
             receipt.ocr_provider = result.get("provider")
             receipt.ocr_processed_at = datetime.utcnow()
+            receipt.payment_method = result.get("payment_method")
+            receipt.line_items = result.get("line_items")
 
             # Categorize
             categorizer = ExpenseCategorizer()
