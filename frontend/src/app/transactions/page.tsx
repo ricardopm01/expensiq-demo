@@ -14,6 +14,7 @@ import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { Card, KPICard, Btn, DataTable, EmptyState, PageLoading } from '@/components/ui';
 import { useToast } from '@/components/toast';
+import { BankImportDropzone } from '@/components/bank-import-dropzone';
 import type { Transaction } from '@/types';
 
 interface ReconcileResult {
@@ -116,23 +117,26 @@ export default function TransactionsPage() {
         />
       </div>
 
+      {/* Bank Import Dropzone */}
+      <BankImportDropzone onImportDone={load} />
+
       {/* Actions */}
       <Card className="p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-700">
-              Integracion Bancaria
+              Acciones Rapidas
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Sincroniza y concilia transacciones con recibos automaticamente
+              Sincroniza datos demo o ejecuta conciliacion automatica
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Btn variant="secondary" onClick={handleSync} loading={syncing}>
-              <RefreshCw className="w-4 h-4" /> Sincronizar Banco
+            <Btn variant="secondary" size="sm" onClick={handleSync} loading={syncing}>
+              <RefreshCw className="w-3.5 h-3.5" /> Demo Banco
             </Btn>
-            <Btn onClick={handleReconcile} loading={reconciling}>
-              <Zap className="w-4 h-4" /> Conciliar Todo
+            <Btn size="sm" onClick={handleReconcile} loading={reconciling}>
+              <Zap className="w-3.5 h-3.5" /> Conciliar Todo
             </Btn>
           </div>
         </div>
@@ -162,7 +166,7 @@ export default function TransactionsPage() {
               <EmptyState
                 icon={<CreditCard className="w-12 h-12" />}
                 title="Sin transacciones"
-                desc='Haz clic en "Sincronizar Banco" para importar transacciones de prueba.'
+                desc='Importa un extracto bancario o usa "Demo Banco" para datos de prueba.'
               />
             ) : undefined
           }

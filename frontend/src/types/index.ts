@@ -198,3 +198,24 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   cash: 'Efectivo',
   transfer: 'Transferencia',
 };
+
+// ── Bank Import Types ──────────────────────────────────────────────
+
+export interface ImportPreviewRow {
+  date: string | null;
+  merchant: string | null;
+  amount: number | null;
+  reference: string | null;
+}
+
+export interface ImportPreviewResult {
+  rows: ImportPreviewRow[];
+  total: number;
+}
+
+export interface ImportResult {
+  total_rows: number;
+  created: number;
+  skipped: number;
+  errors: string[];
+}

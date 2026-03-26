@@ -27,15 +27,240 @@ import {
   Crown,
   UserCheck,
   ArrowRight,
+  Clock,
+  BarChart3,
+  Receipt as ReceiptIcon,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
-import { Card, KPICard, SectionHeader, Btn, EmptyState, PageLoading } from '@/components/ui';
+import { Card, KPICard, SectionHeader, Btn, EmptyState, PageLoading, StatusBadge } from '@/components/ui';
 import { useToast } from '@/components/toast';
-import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary } from '@/types';
+import { useRole } from '@/lib/role-context';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
-export default function DashboardPage() {
+/* ──────────────────────────────────────
+   Employee Personal Dashboard
+   ────────────────────────────────────── */
+function EmployeeDashboard() {
+  const router = useRouter();
+  const toast = useToast();
+  const { employeeId } = useRole();
+  const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!employeeId) return;
+    setLoading(true);
+    Promise.all([
+      api.get<EmployeeDetail>(`/employees/${employeeId}`),
+      api.get<Receipt[]>(`/receipts?employee_id=${employeeId}&limit=5`),
+    ])
+      .then(([emp, recs]) => {
+        setEmployee(emp);
+        setReceipts(Array.isArray(recs) ? recs : []);
+      })
+      .catch(() => toast.error('Error cargando datos personales'))
+      .finally(() => setLoading(false));
+  }, [employeeId, toast]);
+
+  if (!employeeId) {
+    return (
+      <EmptyState
+        icon={<Zap className="w-12 h-12" />}
+        title="Selecciona tu perfil"
+        desc="Elige tu nombre en el selector de la barra superior."
+      />
+    );
+  }
+
+  if (loading) return <PageLoading />;
+  if (!employee) return <EmptyState icon={<Zap className="w-12 h-12" />} title="Empleado no encontrado" desc="" />;
+
+  const budgetPct =
+    employee.monthly_budget && employee.monthly_budget > 0
+      ? Math.min(100, Math.round((employee.total_spending / employee.monthly_budget) * 100))
+      : 0;
+  const budgetOver =
+    employee.monthly_budget != null &&
+    employee.monthly_budget > 0 &&
+    employee.total_spending > employee.monthly_budget;
+
+  const donutData = employee.category_breakdown.map((c) => ({
+    name: CATEGORY_LABEL[c.category] || c.category,
+    value: c.total_amount,
+    color: CATEGORY_COLOR[c.category] || '#94A3B8',
+    category: c.category,
+  }));
+  const donutTotal = donutData.reduce((s, d) => s + d.value, 0);
+
+  const pendingReceipts = receipts.filter((r) => r.status === 'pending' || r.status === 'review');
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome */}
+      <Card className="p-5 bg-gradient-to-r from-indigo-50 to-emerald-50 border-indigo-200">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+            {employee.name.split(' ').map(w => w[0]).join('').slice(0, 2)}
+          </div>
+          <div>
+            <p className="font-semibold text-indigo-800">Hola, {employee.name.split(' ')[0]}</p>
+            <p className="text-xs text-indigo-600 mt-0.5">
+              {employee.department || 'General'} &middot; {employee.receipt_count} recibos registrados
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* Personal KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KPICard
+          label="Mi Gasto Total"
+          value={fmt.money(employee.total_spending)}
+          sub={`${employee.receipt_count} recibos`}
+          icon={<Wallet className="w-5 h-5" />}
+          accent="indigo"
+        />
+        <KPICard
+          label="Conciliados"
+          value={employee.matched_count || 0}
+          sub="verificados"
+          icon={<CheckCircle className="w-5 h-5" />}
+          accent="emerald"
+        />
+        <KPICard
+          label="Pendientes"
+          value={employee.pending_count || 0}
+          sub="por procesar"
+          icon={<Clock className="w-5 h-5" />}
+          accent="amber"
+        />
+        <KPICard
+          label="Presupuesto"
+          value={employee.monthly_budget ? fmt.money(employee.monthly_budget) : 'Sin limite'}
+          sub={employee.monthly_budget ? `${budgetPct}% utilizado` : '-'}
+          icon={<BarChart3 className="w-5 h-5" />}
+          accent={budgetOver ? 'red' : 'purple'}
+        />
+      </div>
+
+      {/* Budget Bar */}
+      {employee.monthly_budget != null && employee.monthly_budget > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-semibold text-slate-700">Uso del Presupuesto</span>
+            <span className={`text-sm font-bold ${budgetOver ? 'text-red-600' : 'text-indigo-600'}`}>
+              {budgetPct}%
+            </span>
+          </div>
+          <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                budgetOver ? 'bg-red-500' : 'bg-gradient-to-r from-indigo-500 to-emerald-500'
+              }`}
+              style={{ width: `${Math.min(100, budgetPct)}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-xs text-slate-400">{fmt.money(employee.total_spending)} gastado</span>
+            <span className="text-xs text-slate-400">{fmt.money(employee.monthly_budget)} limite</span>
+          </div>
+        </Card>
+      )}
+
+      {/* Category Donut + Recent Receipts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Category Donut */}
+        <Card hover className="p-5">
+          <SectionHeader title="Mis Gastos por Categoria" subtitle="Distribucion de tu gasto" />
+          {donutData.length === 0 ? (
+            <EmptyState icon={<FolderOpen className="w-12 h-12" />} title="Sin datos" desc="Sube recibos para ver el desglose." />
+          ) : (
+            <div className="flex items-center gap-6">
+              <div className="relative flex-shrink-0" style={{ width: 140, height: 140 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={donutData} cx="50%" cy="50%" innerRadius={50} outerRadius={65} paddingAngle={2} dataKey="value">
+                      {donutData.map((d, i) => (
+                        <Cell key={i} fill={d.color} stroke="#fff" strokeWidth={2} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [fmt.money(Number(value))]} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-xs text-slate-400 font-medium">Total</span>
+                  <span className="text-sm font-bold text-slate-700">{fmt.money(donutTotal)}</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 flex-1 min-w-0">
+                {donutData.slice(0, 6).map((d) => {
+                  const pct = donutTotal > 0 ? (d.value / donutTotal) * 100 : 0;
+                  return (
+                    <div key={d.name} className="space-y-0.5">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                        <span className="text-slate-500 flex-1 truncate">{d.name}</span>
+                        <span className="font-semibold text-slate-700 flex-shrink-0">{fmt.money(d.value)}</span>
+                      </div>
+                      <div className="ml-4 h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: d.color, opacity: 0.7 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Recent Receipts */}
+        <Card hover className="p-5">
+          <SectionHeader
+            title="Mis Recibos Recientes"
+            subtitle={`${pendingReceipts.length} pendientes`}
+            action={
+              <Btn variant="ghost" size="sm" onClick={() => router.push('/receipts')}>
+                Ver todos <ArrowRight className="w-3.5 h-3.5" />
+              </Btn>
+            }
+          />
+          {receipts.length === 0 ? (
+            <EmptyState icon={<ReceiptIcon className="w-12 h-12" />} title="Sin recibos" desc="Sube tu primer recibo." />
+          ) : (
+            <div className="space-y-2">
+              {receipts.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer"
+                  onClick={() => router.push('/receipts')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-700 truncate">
+                      {r.merchant || 'Procesando...'}
+                    </p>
+                    <p className="text-xs text-slate-400">{fmt.date(r.date || r.upload_timestamp)}</p>
+                  </div>
+                  <p className="text-sm font-bold text-slate-800 flex-shrink-0">
+                    {r.amount != null ? fmt.money(r.amount) : '-'}
+                  </p>
+                  <StatusBadge status={r.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────
+   Admin / Manager Dashboard (original)
+   ────────────────────────────────────── */
+function AdminDashboard() {
   const router = useRouter();
   const toast = useToast();
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -472,7 +697,7 @@ export default function DashboardPage() {
           />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {spenders.slice(0, 8).map((s) => {
-              const budget = 3000; // Default budget for display
+              const budget = 3000;
               const pct = Math.min((s.total_month / budget) * 100, 100);
               const overBudget = s.total_month > budget;
               return (
@@ -554,4 +779,12 @@ export default function DashboardPage() {
       </Card>
     </div>
   );
+}
+
+/* ──────────────────────────────────────
+   Main Page — Routes by role
+   ────────────────────────────────────── */
+export default function DashboardPage() {
+  const { role } = useRole();
+  return role === 'employee' ? <EmployeeDashboard /> : <AdminDashboard />;
 }

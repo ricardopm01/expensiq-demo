@@ -308,6 +308,206 @@ def delete_receipt(receipt_id: str, db: Session = Depends(get_db)):
     return Response(status_code=204)
 
 
+# ── Employee Expense Excel Template ──────────────────────────────
+
+
+CATEGORY_MAP_ES = {
+    "transporte": "transport",
+    "comidas": "meals",
+    "alojamiento": "lodging",
+    "material": "supplies",
+    "entretenimiento": "entertainment",
+    "servicios": "utilities",
+    "otros": "other",
+}
+
+PAYMENT_MAP_ES = {
+    "visa": "card",
+    "tarjeta": "card",
+    "efectivo": "cash",
+    "propio": "cash",
+    "transferencia": "transfer",
+}
+
+
+@router.get("/template/expense-excel")
+def download_expense_template():
+    """Generate and return a standard employee expense Excel template."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.datavalidation import DataValidation
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Gastos"
+
+    # Header styling
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style="thin", color="E2E8F0"),
+        right=Side(style="thin", color="E2E8F0"),
+        top=Side(style="thin", color="E2E8F0"),
+        bottom=Side(style="thin", color="E2E8F0"),
+    )
+
+    headers = ["Fecha", "Comercio / Concepto", "Importe (EUR)", "Metodo de Pago", "Categoria", "Notas"]
+    widths = [14, 30, 16, 18, 20, 30]
+
+    for i, (h, w) in enumerate(zip(headers, widths), 1):
+        cell = ws.cell(row=1, column=i, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    # Example row
+    example = ["15/03/2026", "Hotel Santo Mauro Madrid", 90.00, "Visa", "Alojamiento", "Cena cliente"]
+    for i, val in enumerate(example, 1):
+        cell = ws.cell(row=2, column=i, value=val)
+        cell.font = Font(italic=True, color="94A3B8")
+        cell.border = thin_border
+
+    # Data validations for dropdown columns
+    payment_dv = DataValidation(
+        type="list",
+        formula1='"Visa,Efectivo,Propio,Transferencia"',
+        allow_blank=True,
+    )
+    payment_dv.error = "Selecciona: Visa, Efectivo, Propio o Transferencia"
+    payment_dv.errorTitle = "Metodo no valido"
+    ws.add_data_validation(payment_dv)
+    payment_dv.add(f"D2:D500")
+
+    category_dv = DataValidation(
+        type="list",
+        formula1='"Transporte,Comidas,Alojamiento,Material,Entretenimiento,Servicios,Otros"',
+        allow_blank=True,
+    )
+    category_dv.error = "Selecciona una categoria valida"
+    category_dv.errorTitle = "Categoria no valida"
+    ws.add_data_validation(category_dv)
+    category_dv.add(f"E2:E500")
+
+    # Number format for amount column
+    for row in range(2, 501):
+        ws.cell(row=row, column=3).number_format = '#,##0.00'
+
+    # Freeze header row
+    ws.freeze_panes = "A2"
+
+    # Save to buffer
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=plantilla_gastos_expensiq.xlsx"},
+    )
+
+
+@router.post("/import-expense-excel")
+async def import_expense_excel(
+    file: UploadFile = File(...),
+    employee_id: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    """Import an employee expense Excel and create Receipt records."""
+    import io
+    from openpyxl import load_workbook
+
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    content = await file.read()
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    ws = wb.active
+    if ws is None:
+        raise HTTPException(status_code=400, detail="Excel file has no active sheet")
+
+    rows = list(ws.iter_rows(min_row=2, values_only=True))  # Skip header
+    created = 0
+    errors = []
+
+    for i, row in enumerate(rows, start=2):
+        if not row or len(row) < 3:
+            continue
+        date_val, merchant_val, amount_val = row[0], row[1], row[2]
+        payment_val = row[3] if len(row) > 3 else None
+        category_val = row[4] if len(row) > 4 else None
+        notes_val = row[5] if len(row) > 5 else None
+
+        # Skip empty rows
+        if not amount_val and not merchant_val:
+            continue
+
+        # Parse amount
+        if isinstance(amount_val, (int, float)):
+            amount = float(amount_val)
+        else:
+            try:
+                amount = float(str(amount_val).replace(",", ".").replace(" ", ""))
+            except (ValueError, TypeError):
+                errors.append(f"Fila {i}: importe invalido '{amount_val}'")
+                continue
+
+        # Parse date
+        receipt_date = None
+        if isinstance(date_val, datetime):
+            receipt_date = date_val.date()
+        elif isinstance(date_val, DateType):
+            receipt_date = date_val
+        elif date_val:
+            for dfmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+                try:
+                    receipt_date = datetime.strptime(str(date_val).strip(), dfmt).date()
+                    break
+                except ValueError:
+                    continue
+
+        # Map payment method
+        pm_raw = str(payment_val or "").strip().lower()
+        payment_method = PAYMENT_MAP_ES.get(pm_raw, "card")
+
+        # Map category
+        cat_raw = str(category_val or "").strip().lower()
+        category = CATEGORY_MAP_ES.get(cat_raw, "other")
+
+        receipt = Receipt(
+            id=uuid.uuid4(),
+            employee_id=employee_id,
+            merchant=str(merchant_val or "").strip() or None,
+            date=receipt_date,
+            amount=amount,
+            currency="EUR",
+            category=category,
+            payment_method=payment_method,
+            notes=str(notes_val or "").strip() or None,
+            status="pending",
+            ocr_provider="excel_import",
+            ocr_confidence=1.0,
+            approval_level=_calculate_approval_level(amount),
+        )
+        db.add(receipt)
+        created += 1
+
+    db.commit()
+    wb.close()
+    logger.info("Excel import for employee %s: %d receipts created", employee_id, created)
+
+    return {
+        "created": created,
+        "errors": errors[:10],
+    }
+
+
 def _process_receipt_ocr(receipt_id: str, file_content: bytes, filename: str):
     """Background task: run OCR on the uploaded file and update the receipt."""
     from app.db.session import SessionLocal

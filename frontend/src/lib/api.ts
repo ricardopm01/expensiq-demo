@@ -1,13 +1,22 @@
 const BASE = '/api/v1';
 
 let _currentRole = 'admin';
+let _currentEmployeeId: string | null = null;
 
 export function setApiRole(role: string) {
   _currentRole = role;
 }
 
+export function setApiEmployeeId(id: string | null) {
+  _currentEmployeeId = id;
+}
+
 function roleHeaders(): Record<string, string> {
-  return { 'X-User-Role': _currentRole };
+  const headers: Record<string, string> = { 'X-User-Role': _currentRole };
+  if (_currentEmployeeId) {
+    headers['X-Employee-Id'] = _currentEmployeeId;
+  }
+  return headers;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {

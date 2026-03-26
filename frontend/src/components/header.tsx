@@ -1,9 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Shield } from 'lucide-react';
+import { Shield, UserCircle } from 'lucide-react';
 import { useRole } from '@/lib/role-context';
-import { setApiRole } from '@/lib/api';
 import { ROLE_LABELS } from '@/types';
 
 const PAGE_META: Record<string, { title: string; subtitle: string }> = {
@@ -13,19 +12,27 @@ const PAGE_META: Record<string, { title: string; subtitle: string }> = {
   '/alerts':       { title: 'Alertas',       subtitle: 'Anomalias y excepciones detectadas por IA' },
   '/employees':    { title: 'Empleados',     subtitle: 'Directorio y presupuestos mensuales' },
   '/approvals':    { title: 'Aprobaciones',  subtitle: 'Workflow de aprobacion multinivel' },
+  '/profile':      { title: 'Mi Perfil',     subtitle: 'Tu resumen de gastos y presupuesto' },
+};
+
+const EMPLOYEE_META: Record<string, { title: string; subtitle: string }> = {
+  '/':         { title: 'Mi Panel',    subtitle: 'Tu resumen personal de gastos' },
+  '/receipts': { title: 'Mis Recibos', subtitle: 'Tus tickets y gastos registrados' },
+  '/profile':  { title: 'Mi Perfil',   subtitle: 'Tu resumen de gastos y presupuesto' },
 };
 
 export function Header() {
   const pathname = usePathname();
-  const { role, setRole } = useRole();
+  const { role, setRole, employeeId, setEmployeeId, employees } = useRole();
 
+  const metaSource = role === 'employee' ? EMPLOYEE_META : PAGE_META;
   const meta =
+    metaSource[pathname] ||
     PAGE_META[pathname] ||
     (pathname.startsWith('/employees/') ? { title: 'Perfil Empleado', subtitle: 'Desglose de gastos por categoria' } : PAGE_META['/']);
 
   const handleRoleChange = (newRole: string) => {
     setRole(newRole as 'employee' | 'manager' | 'admin');
-    setApiRole(newRole);
   };
 
   return (
@@ -34,7 +41,23 @@ export function Header() {
         <h1 className="text-lg font-bold text-slate-800">{meta.title}</h1>
         <p className="text-xs text-slate-400">{meta.subtitle}</p>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Employee Selector — only when role is employee */}
+        {role === 'employee' && employees.length > 0 && (
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1.5">
+            <UserCircle className="w-3.5 h-3.5 text-emerald-500" />
+            <select
+              value={employeeId || ''}
+              onChange={(e) => setEmployeeId(e.target.value || null)}
+              className="text-xs font-semibold text-emerald-700 bg-transparent border-none outline-none cursor-pointer max-w-[150px]"
+            >
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* Role Selector */}
         <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1.5">
           <Shield className="w-3.5 h-3.5 text-indigo-500" />

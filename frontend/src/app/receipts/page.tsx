@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Upload, Filter, X, Download } from 'lucide-react';
+import { Upload, Filter, X, Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import {
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui';
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
+import { useRole } from '@/lib/role-context';
 import type { Receipt, Employee } from '@/types';
 import { CATEGORY_LABEL } from '@/types';
 
@@ -32,6 +33,8 @@ export default function ReceiptsPageWrapper() {
 function ReceiptsPage() {
   const searchParams = useSearchParams();
   const toast = useToast();
+  const { role, employeeId: currentEmployeeId } = useRole();
+  const isEmployee = role === 'employee';
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [empMap, setEmpMap] = useState<Record<string, Employee>>({});
@@ -52,6 +55,14 @@ function ReceiptsPage() {
   const [showFilters, setShowFilters] = useState(
     !!(searchParams.get('employee_id') || searchParams.get('category'))
   );
+
+  // Auto-set employee filter when in employee role
+  useEffect(() => {
+    if (isEmployee && currentEmployeeId) {
+      setFilterEmployee(currentEmployeeId);
+      setForm((f) => ({ ...f, employee_id: currentEmployeeId }));
+    }
+  }, [isEmployee, currentEmployeeId]);
 
   const buildQuery = useCallback(() => {
     let q = '/receipts?limit=200';
@@ -140,6 +151,7 @@ function ReceiptsPage() {
           subtitle="Sube una imagen o PDF para extraer datos automaticamente con OCR"
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          {!isEmployee && (
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">
               Empleado *
@@ -156,6 +168,7 @@ function ReceiptsPage() {
               ))}
             </select>
           </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-slate-500 mb-1.5">
               Comercio (opcional)
@@ -232,6 +245,9 @@ function ReceiptsPage() {
         </div>
       </Card>
 
+      {/* Excel Template — Employee view */}
+      {isEmployee && <ExcelTemplateSection employeeId={currentEmployeeId} onImport={load} />}
+
       {/* Advanced Filters */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -259,7 +275,8 @@ function ReceiptsPage() {
           )}
         </div>
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className={`grid grid-cols-2 ${isEmployee ? 'md:grid-cols-4' : 'md:grid-cols-5'} gap-3`}>
+            {!isEmployee && (
             <div>
               <label className="block text-xs text-slate-400 mb-1">Empleado</label>
               <select
@@ -275,6 +292,7 @@ function ReceiptsPage() {
                 ))}
               </select>
             </div>
+            )}
             <div>
               <label className="block text-xs text-slate-400 mb-1">Categoria</label>
               <select
@@ -370,7 +388,7 @@ function ReceiptsPage() {
         <DataTable
           headers={[
             'Comercio',
-            'Empleado',
+            ...(isEmployee ? [] : ['Empleado']),
             'Fecha',
             'Importe',
             'Categoria',
@@ -410,6 +428,7 @@ function ReceiptsPage() {
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">{r.currency || 'EUR'}</p>
                 </td>
+                {!isEmployee && (
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
@@ -420,6 +439,7 @@ function ReceiptsPage() {
                     </span>
                   </div>
                 </td>
+                )}
                 <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                   {fmt.date(r.date || r.upload_timestamp)}
                 </td>
@@ -480,5 +500,86 @@ function ReceiptsPage() {
         />
       )}
     </div>
+  );
+}
+
+/* ── Excel Template Section (Employee only) ──────────────────────── */
+
+function ExcelTemplateSection({ employeeId, onImport }: { employeeId: string | null; onImport: () => void }) {
+  const toast = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleDownloadTemplate = () => {
+    window.open('/api/v1/receipts/template/expense-excel', '_blank');
+  };
+
+  const handleImportExcel = async (file: File) => {
+    if (!employeeId) {
+      toast.error('No hay empleado seleccionado');
+      return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('employee_id', employeeId);
+      const res = await api.upload<{ created: number; errors: string[] }>('/receipts/import-expense-excel', fd);
+      toast.success(`${res.created} gastos importados desde Excel`);
+      if (res.errors.length > 0) {
+        toast.error(res.errors[0]);
+      }
+      onImport();
+    } catch {
+      toast.error('Error al importar Excel');
+    } finally {
+      setImporting(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <FileSpreadsheet className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700">Plantilla Excel de Gastos</h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Descarga la plantilla, rellenala con tus gastos y subela
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" /> Descargar Plantilla
+          </button>
+          <button
+            onClick={() => !importing && fileRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-colors disabled:opacity-50"
+          >
+            {importing ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Importando...</>
+            ) : (
+              <><Upload className="w-3.5 h-3.5" /> Importar Excel</>
+            )}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImportExcel(f);
+            }}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }

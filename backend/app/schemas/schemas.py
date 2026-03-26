@@ -207,3 +207,24 @@ class ReceiptMatchOut(BaseModel):
     transaction_merchant: Optional[str] = None
     transaction_amount: float
     transaction_currency: str = "EUR"
+
+
+# ── Bank Import ────────────────────────────────────────────────────
+
+class ImportPreviewRow(BaseModel):
+    date: Optional[str] = None
+    merchant: Optional[str] = None
+    amount: Optional[float] = None
+    reference: Optional[str] = None
+
+
+class ImportPreviewResult(BaseModel):
+    rows: list[ImportPreviewRow]
+    total: int
+
+
+class ImportResult(BaseModel):
+    total_rows: int
+    created: int
+    skipped: int
+    errors: list[str] = []

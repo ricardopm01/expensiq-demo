@@ -10,10 +10,12 @@ import {
   Users,
   CheckSquare,
   Zap,
+  User,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useRole } from '@/lib/role-context';
 
-const NAV_ITEMS = [
+const ADMIN_NAV = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/receipts', label: 'Recibos', icon: Receipt },
   { href: '/transactions', label: 'Transacciones', icon: CreditCard },
@@ -22,8 +24,17 @@ const NAV_ITEMS = [
   { href: '/employees', label: 'Empleados', icon: Users },
 ];
 
+const EMPLOYEE_NAV = [
+  { href: '/', label: 'Mi Panel', icon: LayoutGrid },
+  { href: '/receipts', label: 'Mis Recibos', icon: Receipt },
+  { href: '/profile', label: 'Mi Perfil', icon: User },
+];
+
 export function Sidebar() {
   const pathname = usePathname();
+  const { role } = useRole();
+
+  const navItems = role === 'employee' ? EMPLOYEE_NAV : ADMIN_NAV;
 
   return (
     <aside className="fixed inset-y-0 left-0 w-60 bg-slate-900 flex flex-col z-40">
@@ -39,7 +50,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 mt-2 space-y-0.5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active =
             href === '/' ? pathname === '/' : pathname.startsWith(href);
           return (

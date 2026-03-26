@@ -4,12 +4,19 @@ import logging
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.models import Alert, BankTransaction, Employee, Match, Receipt
-from app.schemas.schemas import ReconcileResult, SyncResult, TransactionOut
+from app.schemas.schemas import (
+    ImportPreviewResult,
+    ImportPreviewRow,
+    ImportResult,
+    ReconcileResult,
+    SyncResult,
+    TransactionOut,
+)
 
 logger = logging.getLogger("expensiq.transactions")
 
@@ -140,4 +147,82 @@ def reconcile_all(db: Session = Depends(get_db)):
         receipts_processed=len(receipts),
         matches_created=total_matches,
         alerts_created=alerts_created,
+    )
+
+
+@router.post("/preview-import", response_model=ImportPreviewResult)
+async def preview_import(file: UploadFile = File(...)):
+    """Parse a bank statement file and return a preview without saving."""
+    from app.services.bank_parser import BankStatementParser
+
+    content = await file.read()
+    parser = BankStatementParser()
+    rows = parser.parse(content, file.filename or "upload.csv")
+
+    preview_rows = [
+        ImportPreviewRow(
+            date=r.get("date"),
+            merchant=r.get("merchant"),
+            amount=r.get("amount"),
+            reference=r.get("reference"),
+        )
+        for r in rows[:50]
+    ]
+
+    return ImportPreviewResult(rows=preview_rows, total=len(rows))
+
+
+@router.post("/import-bank-extract", response_model=ImportResult)
+async def import_bank_extract(
+    file: UploadFile = File(...),
+    account_id: str = Form(default="RURAL-KUTXA"),
+    db: Session = Depends(get_db),
+):
+    """Import a bank statement CSV/Excel and create BankTransaction records."""
+    from app.services.bank_parser import BankStatementParser
+
+    content = await file.read()
+    parser = BankStatementParser()
+    rows = parser.parse(content, file.filename or "upload.csv")
+
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for i, row in enumerate(rows):
+        ext_id = row.get("external_id", "")
+        if not ext_id:
+            errors.append(f"Row {i+1}: no external_id generated")
+            continue
+
+        # Dedup by external_id
+        existing = db.query(BankTransaction).filter(
+            BankTransaction.external_id == ext_id
+        ).first()
+        if existing:
+            skipped += 1
+            continue
+
+        try:
+            txn = BankTransaction(
+                external_id=ext_id,
+                date=row.get("date"),
+                merchant=row.get("merchant"),
+                amount=row.get("amount", 0),
+                currency="EUR",
+                account_id=account_id,
+            )
+            db.add(txn)
+            created += 1
+        except Exception as e:
+            errors.append(f"Row {i+1}: {str(e)}")
+
+    db.commit()
+    logger.info("Bank import: %d created, %d skipped, %d errors", created, skipped, len(errors))
+
+    return ImportResult(
+        total_rows=len(rows),
+        created=created,
+        skipped=skipped,
+        errors=errors[:10],  # Limit error messages
     )

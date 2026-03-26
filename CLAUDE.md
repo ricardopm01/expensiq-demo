@@ -198,10 +198,14 @@ backend/
 - Migración Alembic 0003 (approval_level, approved_by, approved_at)
 - Endpoints: approval-summary, monthly-trend, approve con validación X-User-Role
 
-### Fase D — PENDIENTE
-- Import CSV bancario (BBVA, Santander, CaixaBank, Sabadell)
-- Predicción presupuesto con IA
-- UI drag-and-drop para CSV
+### Fase D — COMPLETADA
+- Vistas empleado vs admin: sidebar condicional, selector empleado, dashboard personal, filtro recibos
+- Import CSV/Excel bancario Rural Kutxa (parser Ruralvía con auto-detección formato)
+- Drag-and-drop UI para extractos bancarios con preview y confirmación
+- Plantilla Excel de gastos del empleado (descarga + importación)
+- Nueva página /profile para vista empleado
+- Endpoint preview-import y import-bank-extract
+- Endpoint template/expense-excel e import-expense-excel
 
 ### Fase E — PENDIENTE
 - Pulido visual (skeletons, empty states, responsive)
