@@ -158,6 +158,11 @@ backend/
 | `/alerts` | GET | Alertas (filtro: resolved=false) |
 | `/alerts/{id}/resolve` | PATCH | Resolver alerta |
 | `/alerts/{id}/read` | PATCH | Marcar como leída |
+| `/alerts/ai-scan` | POST | Detección anomalías con IA |
+| `/analytics/approval-summary` | GET | Conteos pendientes por nivel aprobación |
+| `/analytics/monthly-trend` | GET | Tendencia gasto mensual (6 meses) |
+| `/receipts/{id}/approve` | POST | Aprobar (valida X-User-Role vs nivel) |
+| `/receipts/{id}/reject` | POST | Rechazar recibo |
 
 ---
 
@@ -184,10 +189,14 @@ backend/
 - PATCH /receipts/{id} (edición OCR) — backend por Marcos, frontend integrado
 - Line items y payment method en receipt detail modal
 
-### Fase C — PENDIENTE (próxima)
+### Fase C — COMPLETADA
 - Workflow aprobación multinivel (auto <100, manager 100-500, director 500+)
-- Dashboard enriquecido (tendencia 6 meses, grid empleados, panel alertas)
-- Selector de rol (simulated auth)
+- Dashboard enriquecido (tendencia 6 meses AreaChart, grid empleados, panel aprobaciones)
+- Selector de rol en header (Empleado/Gerente/Director) con React context
+- Página /approvals: KPIs, cola filtrable, batch approve, role-gated
+- Receipt modal: badge nivel, info aprobador, botones deshabilitados por rol
+- Migración Alembic 0003 (approval_level, approved_by, approved_at)
+- Endpoints: approval-summary, monthly-trend, approve con validación X-User-Role
 
 ### Fase D — PENDIENTE
 - Import CSV bancario (BBVA, Santander, CaixaBank, Sabadell)

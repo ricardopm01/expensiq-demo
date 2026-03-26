@@ -212,9 +212,9 @@ Comandos útiles al trabajar con Claude:
 |---|---|---|
 | 1 | **COMPLETADA** | Backend completo, 14+ endpoints, OCR mock, reconciliación |
 | A | **COMPLETADA** | Frontend Next.js 14 (reemplaza SPA monolítico) |
-| B | Pendiente | Claude Vision OCR + detección anomalías con IA |
-| C | Pendiente | Workflow aprobación multinivel + dashboard enriquecido |
-| D | Pendiente | Import CSV bancario + predicción presupuesto IA |
+| B | **COMPLETADA** | Claude Vision OCR + detección anomalías con IA |
+| C | **COMPLETADA** | Workflow aprobación multinivel + dashboard enriquecido |
+| D | **SIGUIENTE** | Import CSV bancario + predicción presupuesto IA (ver HANDOFF_FASE_D.md) |
 | E | Pendiente | Pulido visual + datos demo definitivos |
 
 ---
