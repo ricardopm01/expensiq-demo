@@ -217,6 +217,14 @@ backend/
 - DEPT_BADGE actualizado: Dirección, Ingeniería (con/sin tildes), legacy English
 - Script demo guiado: DEMO_SCRIPT.md con 7 actos (~18 min)
 
+### Fase F — COMPLETADA (Marcos)
+- Comparativa por departamento: dashboard admin con barra gasto vs presupuesto por dpto (verde/naranja/rojo)
+- Predicción IA por empleado: `GET /analytics/forecast/{id}` con Claude + fallback estadístico
+- Servicio `ai_forecast.py`: análisis histórico → previsión próximo mes, tendencia, confianza, insight en español
+- Alertas automáticas de presupuesto: `POST /alerts/budget-scan` crea alertas al superar 80%/100%
+- Polish: presupuesto real en employee grid, ALERT_LABEL con tipos nuevos, sidebar v3.0
+- PR #1 creado en GitHub para merge a main
+
 ---
 
 ## Entorno de desarrollo — Setup Colima (Mac ARM64)
