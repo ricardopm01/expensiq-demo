@@ -77,6 +77,66 @@ def ai_anomaly_scan(db: Session = Depends(get_db)):
     return {"alerts_created": created}
 
 
+@router.post("/budget-scan")
+def budget_alert_scan(db: Session = Depends(get_db)):
+    """Check all employees against their monthly budget and create alerts if over 80%."""
+    from sqlalchemy import extract, func
+    from datetime import date
+
+    today = date.today()
+    employees = db.query(Employee).filter(Employee.monthly_budget.isnot(None)).all()
+
+    created = 0
+    for emp in employees:
+        if not emp.monthly_budget or emp.monthly_budget <= 0:
+            continue
+
+        total = float(
+            db.query(func.coalesce(func.sum(Receipt.amount), 0))
+            .filter(
+                Receipt.employee_id == emp.id,
+                extract("year", Receipt.date) == today.year,
+                extract("month", Receipt.date) == today.month,
+            )
+            .scalar()
+        )
+
+        pct = total / float(emp.monthly_budget) * 100
+        if pct < 80:
+            continue
+
+        alert_type = "budget_exceeded" if pct >= 100 else "budget_warning"
+        severity = "high" if pct >= 100 else "medium"
+        label = "superado" if pct >= 100 else f"al {pct:.0f}%"
+
+        # Avoid duplicate alerts this month
+        existing = db.query(Alert).filter(
+            Alert.employee_id == emp.id,
+            Alert.alert_type == alert_type,
+            extract("year", Alert.created_at) == today.year,
+            extract("month", Alert.created_at) == today.month,
+        ).first()
+
+        if existing:
+            continue
+
+        alert = Alert(
+            id=uuid.uuid4(),
+            employee_id=emp.id,
+            alert_type=alert_type,
+            description=(
+                f"{emp.name} ha {label} su presupuesto mensual. "
+                f"Gasto acumulado: {total:.0f} EUR de {emp.monthly_budget:.0f} EUR ({pct:.0f}%)."
+            ),
+            severity=severity,
+        )
+        db.add(alert)
+        created += 1
+
+    db.commit()
+    return {"alerts_created": created, "employees_checked": len(employees)}
+
+
 @router.get("", response_model=list[AlertOut])
 def list_alerts(
     resolved: Optional[bool] = None,

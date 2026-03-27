@@ -11,7 +11,10 @@ from app.db.session import get_db
 from app.models.models import Alert, BankTransaction, Employee, Match, Receipt
 from app.schemas.schemas import (
     CategoryOut,
+    DepartmentComparisonOut,
     EmployeeCategoryBreakdownOut,
+    ForecastOut,
+    MonthlyHistoryPoint,
     ReceiptSummary,
     SummaryOut,
     TopSpenderOut,
@@ -148,6 +151,110 @@ def get_monthly_trend(db: Session = Depends(get_db)):
         }
         for r in results
     ]
+
+
+@router.get("/department-comparison", response_model=list[DepartmentComparisonOut])
+def get_department_comparison(db: Session = Depends(get_db)):
+    """Spending vs budget comparison grouped by department."""
+    employees = db.query(Employee).all()
+
+    dept_map: dict[str, dict] = {}
+    for emp in employees:
+        dept = emp.department or "Sin departamento"
+        if dept not in dept_map:
+            dept_map[dept] = {"employees": [], "spending": 0.0, "receipt_count": 0, "category_counts": {}}
+        dept_map[dept]["employees"].append(emp)
+
+    receipts = db.query(Receipt).filter(Receipt.amount.isnot(None)).all()
+    emp_dept = {str(emp.id): emp.department or "Sin departamento" for emp in employees}
+
+    for r in receipts:
+        dept = emp_dept.get(str(r.employee_id), "Sin departamento")
+        if dept in dept_map:
+            dept_map[dept]["spending"] += float(r.amount or 0)
+            dept_map[dept]["receipt_count"] += 1
+            cat = r.category or "other"
+            dept_map[dept]["category_counts"][cat] = dept_map[dept]["category_counts"].get(cat, 0) + 1
+
+    result = []
+    for dept, data in dept_map.items():
+        budget_total = sum(float(e.monthly_budget or 0) for e in data["employees"])
+        utilization = (data["spending"] / budget_total * 100) if budget_total > 0 else 0
+        top_cat = max(data["category_counts"], key=data["category_counts"].get) if data["category_counts"] else None
+        result.append(DepartmentComparisonOut(
+            department=dept,
+            total_spending=round(data["spending"], 2),
+            budget_total=round(budget_total, 2),
+            employee_count=len(data["employees"]),
+            receipt_count=data["receipt_count"],
+            utilization_pct=round(utilization, 1),
+            top_category=top_cat,
+        ))
+
+    return sorted(result, key=lambda x: x.total_spending, reverse=True)
+
+
+@router.get("/forecast/{employee_id}", response_model=ForecastOut)
+def get_employee_forecast(employee_id: str, db: Session = Depends(get_db)):
+    """AI-powered spending forecast for an employee."""
+    from app.services.ai_forecast import AIForecastService
+
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    months_es = {1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun",
+                 7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic"}
+
+    rows = (
+        db.query(
+            extract("year", Receipt.date).label("year"),
+            extract("month", Receipt.date).label("month"),
+            func.coalesce(func.sum(Receipt.amount), 0).label("total"),
+            func.count(Receipt.id).label("count"),
+        )
+        .filter(Receipt.employee_id == employee_id, Receipt.date.isnot(None), Receipt.amount.isnot(None))
+        .group_by(extract("year", Receipt.date), extract("month", Receipt.date))
+        .order_by(extract("year", Receipt.date), extract("month", Receipt.date))
+        .all()
+    )
+
+    monthly_history = [
+        {"month": f"{months_es.get(int(r.month), '?')} {int(r.year)}", "total": float(r.total), "count": r.count}
+        for r in rows
+    ]
+
+    # Current month spending
+    today = date.today()
+    current_month_spending = float(
+        db.query(func.coalesce(func.sum(Receipt.amount), 0))
+        .filter(
+            Receipt.employee_id == employee_id,
+            extract("year", Receipt.date) == today.year,
+            extract("month", Receipt.date) == today.month,
+        )
+        .scalar()
+    )
+
+    emp_dict = {
+        "id": str(employee.id),
+        "name": employee.name,
+        "department": employee.department,
+        "monthly_budget": employee.monthly_budget,
+    }
+
+    forecast_data = AIForecastService().forecast(emp_dict, monthly_history)
+
+    return ForecastOut(
+        employee_id=str(employee.id),
+        employee_name=employee.name,
+        current_month_spending=round(current_month_spending, 2),
+        forecast_next_month=forecast_data["forecast_next_month"],
+        trend=forecast_data["trend"],
+        confidence=forecast_data["confidence"],
+        insight=forecast_data["insight"],
+        monthly_history=[MonthlyHistoryPoint(**m) for m in monthly_history],
+    )
 
 
 @router.get("/employee/{employee_id}/categories", response_model=list[EmployeeCategoryBreakdownOut])

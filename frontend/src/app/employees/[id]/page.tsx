@@ -17,6 +17,10 @@ import {
   ArrowLeft,
   FolderOpen,
   User,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Brain,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -31,7 +35,7 @@ import {
 } from '@/components/ui';
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
-import type { EmployeeDetail, Receipt } from '@/types';
+import type { EmployeeDetail, Receipt, Forecast } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR } from '@/types';
 
 const AVATAR_COLORS = [
@@ -63,15 +67,21 @@ export default function EmployeeProfilePage() {
   const router = useRouter();
   const toast = useToast();
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
+  const [forecast, setForecast] = useState<Forecast | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
 
   useEffect(() => {
     if (!params.id) return;
-    api
-      .get<EmployeeDetail>(`/employees/${params.id}`)
-      .then((e) => setEmployee(e))
+    Promise.all([
+      api.get<EmployeeDetail>(`/employees/${params.id}`),
+      api.get<Forecast>(`/analytics/forecast/${params.id}`).catch(() => null),
+    ])
+      .then(([e, f]) => {
+        setEmployee(e);
+        setForecast(f);
+      })
       .catch(() => toast.error('Error cargando perfil'))
       .finally(() => setLoading(false));
   }, [params.id, toast]);
@@ -205,6 +215,59 @@ export default function EmployeeProfilePage() {
             <span className="text-xs text-slate-400">
               {fmt.money(employee.monthly_budget)} limite
             </span>
+          </div>
+        </Card>
+      )}
+
+      {/* AI Forecast */}
+      {forecast && (
+        <Card className="p-5">
+          <SectionHeader
+            title="Prediccion IA — Proximo Mes"
+            subtitle="Analisis basado en historial de gastos"
+            action={
+              <span className="flex items-center gap-1.5 text-xs text-indigo-500 font-medium">
+                <Brain className="w-3.5 h-3.5" /> IA
+              </span>
+            }
+          />
+          <div className="flex flex-col sm:flex-row gap-4 mt-2">
+            {/* Forecast number */}
+            <div className="flex items-center gap-4 p-4 bg-indigo-50 rounded-2xl flex-shrink-0">
+              <div>
+                <p className="text-xs text-indigo-500 font-medium mb-0.5">Prevision</p>
+                <p className="text-2xl font-bold text-indigo-700">{fmt.money(forecast.forecast_next_month)}</p>
+                <p className="text-xs text-indigo-400 mt-0.5">
+                  Actual este mes: {fmt.money(forecast.current_month_spending)}
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                {forecast.trend === 'increasing' ? (
+                  <TrendingUp className="w-8 h-8 text-red-400" />
+                ) : forecast.trend === 'decreasing' ? (
+                  <TrendingDown className="w-8 h-8 text-emerald-500" />
+                ) : (
+                  <Minus className="w-8 h-8 text-slate-400" />
+                )}
+                <span className={`text-xs font-semibold ${
+                  forecast.trend === 'increasing' ? 'text-red-500' :
+                  forecast.trend === 'decreasing' ? 'text-emerald-600' : 'text-slate-500'
+                }`}>
+                  {forecast.trend === 'increasing' ? 'Al alza' : forecast.trend === 'decreasing' ? 'A la baja' : 'Estable'}
+                </span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                  forecast.confidence === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                  forecast.confidence === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {forecast.confidence === 'high' ? 'Alta confianza' : forecast.confidence === 'medium' ? 'Media confianza' : 'Baja confianza'}
+                </span>
+              </div>
+            </div>
+            {/* Insight text */}
+            <div className="flex-1 p-4 bg-slate-50 rounded-2xl">
+              <p className="text-xs text-slate-400 font-medium mb-1.5">Analisis</p>
+              <p className="text-sm text-slate-600 leading-relaxed">{forecast.insight}</p>
+            </div>
           </div>
         </Card>
       )}

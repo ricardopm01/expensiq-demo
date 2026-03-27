@@ -35,7 +35,7 @@ import { fmt } from '@/lib/format';
 import { Card, KPICard, SectionHeader, Btn, EmptyState, DashboardSkeleton, StatusBadge } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt } from '@/types';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
 /* ──────────────────────────────────────
@@ -268,6 +268,7 @@ function AdminDashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [trend, setTrend] = useState<MonthlyTrend[]>([]);
   const [approvalSummary, setApprovalSummary] = useState<ApprovalSummary | null>(null);
+  const [deptComparison, setDeptComparison] = useState<DepartmentComparison[]>([]);
   const [loading, setLoading] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoStep, setDemoStep] = useState('');
@@ -275,13 +276,14 @@ function AdminDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, c, sp, a, t, as_] = await Promise.all([
+      const [s, c, sp, a, t, as_, dept] = await Promise.all([
         api.get<Summary>('/analytics/summary'),
         api.get<CategoryBreakdown[]>('/analytics/categories'),
         api.get<TopSpender[]>('/analytics/top-spenders'),
         api.get<Alert[]>('/alerts?resolved=false'),
         api.get<MonthlyTrend[]>('/analytics/monthly-trend'),
         api.get<ApprovalSummary>('/analytics/approval-summary'),
+        api.get<DepartmentComparison[]>('/analytics/department-comparison'),
       ]);
       setSummary(s);
       setCategories(Array.isArray(c) ? c : []);
@@ -289,6 +291,7 @@ function AdminDashboard() {
       setAlerts(Array.isArray(a) ? a.slice(0, 5) : []);
       setTrend(Array.isArray(t) ? t : []);
       setApprovalSummary(as_);
+      setDeptComparison(Array.isArray(dept) ? dept : []);
     } catch {
       toast.error('Error cargando datos del dashboard');
     } finally {
@@ -720,6 +723,64 @@ function AdminDashboard() {
                   <p className="text-[10px] text-slate-400 mt-1">
                     {s.receipt_count} recibos
                   </p>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Department Comparison */}
+      {deptComparison.length > 0 && (
+        <Card className="p-5">
+          <SectionHeader
+            title="Comparativa por Departamento"
+            subtitle="Gasto real vs presupuesto asignado"
+          />
+          <div className="space-y-3 mt-2">
+            {deptComparison.map((d) => {
+              const pct = d.budget_total > 0 ? Math.min((d.total_spending / d.budget_total) * 100, 100) : 0;
+              const over = d.utilization_pct > 100;
+              const warn = d.utilization_pct >= 80 && !over;
+              const barColor = over ? '#ef4444' : warn ? '#f59e0b' : '#6366f1';
+              return (
+                <div key={d.department} className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-slate-700 w-36 truncate flex-shrink-0">{d.department}</span>
+                    <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden relative">
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, background: barColor }}
+                      />
+                      {d.budget_total > 0 && (
+                        <div className="absolute right-0 top-0 h-full w-px bg-slate-300" />
+                      )}
+                    </div>
+                    <div className="text-right flex-shrink-0 w-28">
+                      <span className="text-sm font-bold text-slate-800">{fmt.money(d.total_spending)}</span>
+                      {d.budget_total > 0 && (
+                        <span className="text-xs text-slate-400 ml-1">/ {fmt.money(d.budget_total)}</span>
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        over ? 'bg-red-50 text-red-600' : warn ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      {d.utilization_pct.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex gap-3 ml-36 text-[11px] text-slate-400">
+                    <span>{d.employee_count} empleados</span>
+                    <span>·</span>
+                    <span>{d.receipt_count} recibos</span>
+                    {d.top_category && (
+                      <>
+                        <span>·</span>
+                        <span>Mayor gasto: {CATEGORY_LABEL[d.top_category] || d.top_category}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })}

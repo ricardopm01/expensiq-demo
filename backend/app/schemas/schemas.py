@@ -228,3 +228,34 @@ class ImportResult(BaseModel):
     created: int
     skipped: int
     errors: list[str] = []
+
+
+# ── Department Comparison ─────────────────────────────────────────
+
+class DepartmentComparisonOut(BaseModel):
+    department: str
+    total_spending: float
+    budget_total: float
+    employee_count: int
+    receipt_count: int
+    utilization_pct: float
+    top_category: Optional[str] = None
+
+
+# ── AI Forecast ────────────────────────────────────────────────────
+
+class MonthlyHistoryPoint(BaseModel):
+    month: str
+    total: float
+    count: int
+
+
+class ForecastOut(BaseModel):
+    employee_id: str
+    employee_name: str
+    current_month_spending: float
+    forecast_next_month: float
+    trend: str
+    confidence: str
+    insight: str
+    monthly_history: list[MonthlyHistoryPoint]

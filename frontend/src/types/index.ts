@@ -199,6 +199,37 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   transfer: 'Transferencia',
 };
 
+// ── Department Comparison ──────────────────────────────────────────
+
+export interface DepartmentComparison {
+  department: string;
+  total_spending: number;
+  budget_total: number;
+  employee_count: number;
+  receipt_count: number;
+  utilization_pct: number;
+  top_category: string | null;
+}
+
+// ── AI Forecast ────────────────────────────────────────────────────
+
+export interface ForecastHistoryPoint {
+  month: string;
+  total: number;
+  count: number;
+}
+
+export interface Forecast {
+  employee_id: string;
+  employee_name: string;
+  current_month_spending: number;
+  forecast_next_month: number;
+  trend: 'increasing' | 'decreasing' | 'stable';
+  confidence: 'high' | 'medium' | 'low';
+  insight: string;
+  monthly_history: ForecastHistoryPoint[];
+}
+
 // ── Bank Import Types ──────────────────────────────────────────────
 
 export interface ImportPreviewRow {
