@@ -207,7 +207,7 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={receipt.image_url}
+                  src={receipt.image_url.startsWith('/static/') ? receipt.image_url : `/api/v1/receipts/${receipt.id}/image`}
                   alt="Recibo"
                   className="w-full h-auto max-h-72 object-contain"
                 />

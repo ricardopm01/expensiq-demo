@@ -69,6 +69,7 @@ services:
       AWS_SECRET_ACCESS_KEY: minioadmin
       OCR_PROVIDER:       ${OCR_PROVIDER:-mock}
       ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY:-}
+      GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
       BANKING_PROVIDER:   mock
       CORS_ORIGINS:       '["*"]'
     volumes:

@@ -183,6 +183,32 @@ def get_receipt(receipt_id: str, db: Session = Depends(get_db)):
     return receipt
 
 
+@router.get("/{receipt_id}/image")
+def get_receipt_image(receipt_id: str, db: Session = Depends(get_db)):
+    """Proxy receipt image from MinIO so the browser can display it."""
+    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    if not receipt or not receipt.image_url:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # Extract the S3 object key from the stored URL
+    # URL format: http://minio:9000/bucket/receipts/uuid/filename
+    try:
+        from app.services.storage import storage_service
+        url_path = receipt.image_url.split(f"/{settings.S3_BUCKET}/", 1)[1]
+        data = storage_service.download(url_path)
+    except Exception:
+        # Fallback: try serving from static files
+        if receipt.image_url.startswith("/static/"):
+            return Response(status_code=302, headers={"Location": receipt.image_url})
+        raise HTTPException(status_code=404, detail="Could not retrieve image")
+
+    # Guess content type from filename
+    ext = url_path.rsplit(".", 1)[-1].lower() if "." in url_path else "jpeg"
+    ct = {"jpeg": "image/jpeg", "jpg": "image/jpeg", "png": "image/png", "webp": "image/webp", "gif": "image/gif", "pdf": "application/pdf"}.get(ext, "image/jpeg")
+
+    return Response(content=data, media_type=ct)
+
+
 @router.get("/{receipt_id}/matches", response_model=list[ReceiptMatchOut])
 def get_receipt_matches(receipt_id: str, db: Session = Depends(get_db)):
     receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
