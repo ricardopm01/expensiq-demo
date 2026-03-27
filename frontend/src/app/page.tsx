@@ -695,9 +695,9 @@ function AdminDashboard() {
           />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {spenders.slice(0, 8).map((s) => {
-              const budget = 3000;
-              const pct = Math.min((s.total_month / budget) * 100, 100);
-              const overBudget = s.total_month > budget;
+              const budget = s.monthly_budget || 0;
+              const pct = budget > 0 ? Math.min((s.total_month / budget) * 100, 100) : 0;
+              const overBudget = budget > 0 && s.total_month > budget;
               return (
                 <div
                   key={s.employee_id}
@@ -721,7 +721,7 @@ function AdminDashboard() {
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    {s.receipt_count} recibos
+                    {s.receipt_count} recibos{budget > 0 ? ` · ${pct.toFixed(0)}% presupuesto` : ''}
                   </p>
                 </div>
               );

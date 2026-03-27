@@ -75,12 +75,13 @@ def get_top_spenders(db: Session = Depends(get_db)):
             Employee.id.label("employee_id"),
             Employee.name,
             Employee.department,
+            Employee.monthly_budget,
             func.coalesce(func.sum(Receipt.amount), 0).label("total_month"),
             func.count(Receipt.id).label("receipt_count"),
         )
         .join(Receipt, Receipt.employee_id == Employee.id)
         .filter(Receipt.amount.isnot(None))
-        .group_by(Employee.id, Employee.name, Employee.department)
+        .group_by(Employee.id, Employee.name, Employee.department, Employee.monthly_budget)
         .order_by(func.sum(Receipt.amount).desc())
         .limit(10)
         .all()
@@ -92,6 +93,7 @@ def get_top_spenders(db: Session = Depends(get_db)):
             department=r.department,
             total_month=float(r.total_month),
             receipt_count=r.receipt_count,
+            monthly_budget=float(r.monthly_budget) if r.monthly_budget else None,
         )
         for r in results
     ]

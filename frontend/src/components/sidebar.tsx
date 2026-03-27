@@ -140,7 +140,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           </div>
 
           <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center pt-1">
-            ExpensIQ Demo v2.0
+            ExpensIQ Demo v3.0
           </p>
         </div>
       </aside>

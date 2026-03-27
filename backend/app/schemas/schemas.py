@@ -121,6 +121,7 @@ class TopSpenderOut(BaseModel):
     department: Optional[str] = None
     total_month: float
     receipt_count: int
+    monthly_budget: Optional[float] = None
 
 
 # ── Action Results ────────────────────────────────────────────────

@@ -97,6 +97,7 @@ export interface TopSpender {
   department: string | null;
   total_month: number;
   receipt_count: number;
+  monthly_budget: number | null;
 }
 
 export interface ReceiptSummary {
@@ -171,6 +172,9 @@ export const ALERT_LABEL: Record<string, string> = {
   policy_violation: 'Política',
   no_receipt: 'Sin recibo',
   rapid_repeat: 'Repetición',
+  suspicious_pattern: 'Sospechoso',
+  budget_warning: 'Presupuesto 80%',
+  budget_exceeded: 'Presupuesto excedido',
 };
 
 export const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
