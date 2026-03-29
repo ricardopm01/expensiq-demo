@@ -6,6 +6,10 @@ export function setBackendToken(token: string | null) {
   _backendToken = token;
 }
 
+export function getBackendToken(): string | null {
+  return _backendToken;
+}
+
 // Legacy helpers — kept for compatibility during transition
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function setApiRole(_role: string) {}

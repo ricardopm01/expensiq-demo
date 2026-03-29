@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
+  FileDown,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -132,6 +133,7 @@ export default function PeriodsPage() {
   const [closingPeriod, setClosingPeriod] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
 
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
@@ -215,6 +217,30 @@ export default function PeriodsPage() {
     }
   };
 
+  const handleDownloadPdf = async (periodId: string, filename: string) => {
+    setDownloadingPdf(periodId);
+    try {
+      // Use raw fetch so we can handle binary response
+      const { getBackendToken } = await import('@/lib/api');
+      const token = getBackendToken();
+      const res = await fetch(`/api/v1/periods/${periodId}/report/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Error al generar el informe');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Error al descargar el informe PDF');
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
+
   const handleReopenEmployee = async (periodId: string, employeeId: string) => {
     setReopeningId(employeeId);
     try {
@@ -280,6 +306,22 @@ export default function PeriodsPage() {
                     {daysRemaining(currentPeriod.end_date) === 1 ? 'día restante' : 'días restantes'}
                   </span>
                 </div>
+              )}
+
+              {isAdmin && (
+                <Btn
+                  variant="secondary"
+                  size="sm"
+                  loading={downloadingPdf === currentPeriod.id}
+                  onClick={() => {
+                    const s = currentPeriod.start_date.replace(/-/g, '');
+                    const e = currentPeriod.end_date.replace(/-/g, '');
+                    handleDownloadPdf(currentPeriod.id, `expensiq_informe_${s}_${e}.pdf`);
+                  }}
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  Informe PDF
+                </Btn>
               )}
 
               {isAdmin && currentPeriod.status === 'open' && (
@@ -488,7 +530,23 @@ export default function PeriodsPage() {
                       )}
                     </div>
                   </div>
-                  <PeriodStatusBadge status={p.status} />
+                  <div className="flex items-center gap-3">
+                    <PeriodStatusBadge status={p.status} />
+                    {isAdmin && (
+                      <button
+                        disabled={downloadingPdf === p.id}
+                        onClick={() => {
+                          const s = p.start_date.replace(/-/g, '');
+                          const e = p.end_date.replace(/-/g, '');
+                          handleDownloadPdf(p.id, `expensiq_informe_${s}_${e}.pdf`);
+                        }}
+                        className="text-slate-500 hover:text-indigo-400 transition-colors disabled:opacity-40"
+                        title="Descargar informe PDF"
+                      >
+                        <FileDown className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

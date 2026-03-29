@@ -6,12 +6,14 @@ from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, require_admin, require_full_admin
 from app.db.session import get_db
-from app.models.models import Employee, EmployeePeriodStatus, Period
+from app.models.models import Alert, Employee, EmployeePeriodStatus, Period, Receipt
+from app.services.pdf_report import generate_period_report
 
 router = APIRouter()
 
@@ -163,6 +165,48 @@ def get_employee_statuses(
         )
         for s in statuses
     ]
+
+
+@router.get("/{period_id}/report/pdf")
+def download_period_report(
+    period_id: str,
+    db: Session = Depends(get_db),
+    _: Employee = Depends(require_admin),
+):
+    """Generate and return a PDF report for the given period."""
+    period = db.query(Period).filter(Period.id == period_id).first()
+    if not period:
+        raise HTTPException(status_code=404, detail="Periodo no encontrado")
+
+    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.name).all()  # noqa: E712
+
+    # Receipts within the period window
+    receipts = (
+        db.query(Receipt)
+        .filter(Receipt.date >= period.start_date, Receipt.date <= period.end_date)
+        .all()
+    )
+
+    # Alerts linked to receipts in this period
+    receipt_ids = [r.id for r in receipts]
+    alerts = (
+        db.query(Alert)
+        .filter(Alert.receipt_id.in_(receipt_ids), Alert.resolved == False)  # noqa: E712
+        .order_by(Alert.created_at.desc())
+        .all()
+    ) if receipt_ids else []
+
+    pdf_bytes = generate_period_report(period, employees, receipts, alerts)
+
+    start = period.start_date.strftime("%Y%m%d")
+    end = period.end_date.strftime("%Y%m%d")
+    filename = f"expensiq_informe_{start}_{end}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/me/can-submit")
