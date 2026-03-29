@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.routes import alerts, analytics, employees, receipts, transactions
+from app.routes import alerts, analytics, auth, employees, periods, receipts, transactions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,6 +42,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Could not connect to S3/MinIO: %s", e)
 
+    # Start period scheduler (reminders + auto-close)
+    from app.services.email_service import start_scheduler
+    start_scheduler()
+
     logger.info("ExpensIQ API started (env=%s)", settings.APP_ENV)
     yield
     logger.info("ExpensIQ API shutting down")
@@ -69,11 +73,13 @@ app.add_middleware(
 )
 
 # Routes
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(employees.router, prefix="/api/v1/employees", tags=["employees"])
 app.include_router(receipts.router, prefix="/api/v1/receipts", tags=["receipts"])
 app.include_router(transactions.router, prefix="/api/v1/transactions", tags=["transactions"])
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(periods.router, prefix="/api/v1/periods", tags=["periods"])
 
 
 # Static files (receipt images, etc.)

@@ -1,79 +1,51 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { api } from '@/lib/api';
-import { setApiRole, setApiEmployeeId } from '@/lib/api';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { useSession } from 'next-auth/react';
+import { setBackendToken } from '@/lib/api';
 import type { Employee } from '@/types';
 
-type Role = 'employee' | 'admin';
+type Role = 'employee' | 'admin' | 'viewer';
 
 interface RoleContextValue {
   role: Role;
-  setRole: (role: Role) => void;
   employeeId: string | null;
-  setEmployeeId: (id: string | null) => void;
   employee: Employee | null;
   employees: Employee[];
+  // Legacy setters (no-op — role comes from session now)
+  setRole: (role: Role) => void;
+  setEmployeeId: (id: string | null) => void;
 }
 
 const RoleContext = createContext<RoleContextValue>({
-  role: 'admin',
-  setRole: () => {},
+  role: 'employee',
   employeeId: null,
-  setEmployeeId: () => {},
   employee: null,
   employees: [],
+  setRole: () => {},
+  setEmployeeId: () => {},
 });
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [role, setRoleState] = useState<Role>('admin');
-  const [employeeId, setEmployeeIdState] = useState<string | null>(null);
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const { data: session } = useSession();
 
-  // Load employees list once
+  const role = (session?.user?.role as Role) ?? 'employee';
+  const employeeId = session?.user?.employeeId ?? null;
+
+  // Keep backend token in sync
   useEffect(() => {
-    api.get<Employee[]>('/employees')
-      .then((emps) => {
-        const list = Array.isArray(emps) ? emps : [];
-        setEmployees(list);
-      })
-      .catch(() => {});
-  }, []);
-
-  // When employeeId changes, fetch employee detail
-  useEffect(() => {
-    if (employeeId) {
-      const found = employees.find((e) => String(e.id) === String(employeeId));
-      setEmployee(found || null);
-    } else {
-      setEmployee(null);
-    }
-  }, [employeeId, employees]);
-
-  const setRole = useCallback((newRole: Role) => {
-    setRoleState(newRole);
-    setApiRole(newRole);
-    if (newRole !== 'employee') {
-      setEmployeeIdState(null);
-      setApiEmployeeId(null);
-    }
-  }, []);
-
-  const setEmployeeId = useCallback((id: string | null) => {
-    setEmployeeIdState(id);
-    setApiEmployeeId(id);
-  }, []);
-
-  // Auto-select first employee when switching to employee role
-  useEffect(() => {
-    if (role === 'employee' && !employeeId && employees.length > 0) {
-      setEmployeeId(String(employees[0].id));
-    }
-  }, [role, employeeId, employees, setEmployeeId]);
+    setBackendToken(session?.backendToken ?? null);
+  }, [session?.backendToken]);
 
   return (
-    <RoleContext.Provider value={{ role, setRole, employeeId, setEmployeeId, employee, employees }}>
+    <RoleContext.Provider value={{
+      role,
+      employeeId,
+      employee: null,
+      employees: [],
+      setRole: () => {},
+      setEmployeeId: () => {},
+    }}>
       {children}
     </RoleContext.Provider>
   );

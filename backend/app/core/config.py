@@ -26,8 +26,24 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = '["http://localhost:8000", "http://localhost:3000"]'
 
+    # Auth (Google OAuth + JWT)
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRY_HOURS: int = 8
+    ALLOWED_DOMAIN: str = "lezama.es"
+
+    # Email (SMTP)
+    EMAIL_HOST: str = ""
+    EMAIL_PORT: int = 587
+    EMAIL_USER: str = ""
+    EMAIL_PASSWORD: str = ""
+    EMAIL_FROM: str = "ExpensIQ <noreply@lezama.es>"
+
     # App
     APP_ENV: str = "development"
+    FRONTEND_URL: str = "http://localhost:3000"
 
     @property
     def cors_origins_list(self) -> list[str]:

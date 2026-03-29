@@ -1,26 +1,27 @@
 const BASE = '/api/v1';
 
-let _currentRole = 'admin';
-let _currentEmployeeId: string | null = null;
+let _backendToken: string | null = null;
 
-export function setApiRole(role: string) {
-  _currentRole = role;
+export function setBackendToken(token: string | null) {
+  _backendToken = token;
 }
 
-export function setApiEmployeeId(id: string | null) {
-  _currentEmployeeId = id;
-}
+// Legacy helpers — kept for compatibility during transition
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function setApiRole(_role: string) {}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function setApiEmployeeId(_id: string | null) {}
 
-function roleHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'X-User-Role': _currentRole };
-  if (_currentEmployeeId) {
-    headers['X-Employee-Id'] = _currentEmployeeId;
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (_backendToken) {
+    headers['Authorization'] = `Bearer ${_backendToken}`;
   }
   return headers;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers = { ...roleHeaders(), ...(options?.headers || {}) };
+  const headers = { ...authHeaders(), ...(options?.headers || {}) };
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
     throw new Error(`API error: ${res.status} ${res.statusText}`);
@@ -46,7 +47,7 @@ export const api = {
     }),
 
   del: (path: string) =>
-    fetch(`${BASE}${path}`, { method: 'DELETE', headers: roleHeaders() }).then((r) => r.ok),
+    fetch(`${BASE}${path}`, { method: 'DELETE', headers: authHeaders() }).then((r) => r.ok),
 
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: 'POST', body: formData }),

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SessionProvider } from 'next-auth/react';
 import { ToastProvider } from '@/components/toast';
 import { RoleProvider } from '@/lib/role-context';
 import { LayoutShell } from '@/components/layout-shell';
@@ -17,11 +18,13 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body>
-        <ToastProvider>
-          <RoleProvider>
-            <LayoutShell>{children}</LayoutShell>
-          </RoleProvider>
-        </ToastProvider>
+        <SessionProvider>
+          <ToastProvider>
+            <RoleProvider>
+              <LayoutShell>{children}</LayoutShell>
+            </RoleProvider>
+          </ToastProvider>
+        </SessionProvider>
       </body>
     </html>
   );

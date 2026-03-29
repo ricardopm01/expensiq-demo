@@ -31,8 +31,14 @@ class Employee(Base):
     monthly_budget = Column(Numeric(10, 2))
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
+    # Auth fields
+    google_id = Column(String(255), unique=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    last_login = Column(DateTime(timezone=True))
+
     receipts = relationship("Receipt", back_populates="employee", foreign_keys="[Receipt.employee_id]")
     alerts = relationship("Alert", back_populates="employee")
+    period_statuses = relationship("EmployeePeriodStatus", back_populates="employee")
 
 
 class Receipt(Base):
@@ -119,3 +125,33 @@ class Alert(Base):
     resolved_at = Column(DateTime(timezone=True))
 
     employee = relationship("Employee", back_populates="alerts")
+
+
+class Period(Base):
+    """Quincena — billing period (1-15 or 16-end of month)."""
+    __tablename__ = "periods"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    status = Column(String(20), nullable=False, default="open")  # open | closed
+    closed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    employee_statuses = relationship("EmployeePeriodStatus", back_populates="period")
+
+
+class EmployeePeriodStatus(Base):
+    """Tracks per-employee period status (admin can reopen for a specific employee)."""
+    __tablename__ = "employee_period_status"
+    __table_args__ = (UniqueConstraint("employee_id", "period_id"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employee_id = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="CASCADE"), nullable=False)
+    period_id = Column(UUID(as_uuid=True), ForeignKey("periods.id", ondelete="CASCADE"), nullable=False)
+    status = Column(String(20), nullable=False, default="open")  # open | closed | reopened
+    reopened_at = Column(DateTime(timezone=True))
+    reopened_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
+
+    employee = relationship("Employee", back_populates="period_statuses", foreign_keys=[employee_id])
+    period = relationship("Period", back_populates="employee_statuses")
