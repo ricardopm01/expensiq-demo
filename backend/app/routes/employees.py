@@ -1,6 +1,9 @@
 """ExpensIQ — Employee routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+import csv
+import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -16,6 +19,8 @@ from app.schemas.schemas import (
 )
 
 router = APIRouter()
+
+VALID_ROLES = {"employee", "admin", "viewer"}
 
 
 @router.get("", response_model=list[EmployeeOut])
@@ -40,6 +45,89 @@ def create_employee(payload: EmployeeCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(employee)
     return employee
+
+
+@router.post("/bulk-import")
+async def bulk_import_employees(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Accept a CSV file with columns: name,email,department,role,monthly_budget
+    - Header row is required.
+    - role defaults to 'employee' if missing or invalid.
+    - monthly_budget is optional (defaults to null).
+    - Rows where the email already exists are silently skipped.
+    Returns: { created, skipped, errors }
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted")
+
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")  # handles BOM from Excel exports
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    required_headers = {"name", "email"}
+    if reader.fieldnames is None or not required_headers.issubset(
+        {h.strip().lower() for h in reader.fieldnames}
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="CSV must have a header row with at least 'name' and 'email' columns",
+        )
+
+    # Normalise header names to lowercase stripped versions
+    reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
+
+    created = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for row_num, row in enumerate(reader, start=2):  # row 1 is the header
+        name = (row.get("name") or "").strip()
+        email = (row.get("email") or "").strip().lower()
+
+        if not name or not email:
+            errors.append(f"Row {row_num}: 'name' and 'email' are required")
+            continue
+
+        # Skip if email already registered
+        if db.query(Employee).filter(Employee.email == email).first():
+            skipped += 1
+            continue
+
+        role_raw = (row.get("role") or "").strip().lower()
+        role = role_raw if role_raw in VALID_ROLES else "employee"
+
+        department = (row.get("department") or "").strip() or None
+
+        monthly_budget: float | None = None
+        budget_raw = (row.get("monthly_budget") or "").strip()
+        if budget_raw:
+            try:
+                monthly_budget = float(budget_raw.replace(",", "."))
+            except ValueError:
+                errors.append(
+                    f"Row {row_num}: invalid monthly_budget value '{budget_raw}', ignored"
+                )
+
+        employee = Employee(
+            name=name,
+            email=email,
+            department=department,
+            role=role,
+            monthly_budget=monthly_budget,
+        )
+        db.add(employee)
+        created += 1
+
+    db.commit()
+
+    return {"created": created, "skipped": skipped, "errors": errors}
 
 
 @router.get("/{employee_id}", response_model=EmployeeDetailOut)
@@ -107,6 +195,28 @@ def update_employee(employee_id: str, payload: EmployeeUpdate, db: Session = Dep
     for field, value in update_data.items():
         setattr(employee, field, value)
 
+    db.commit()
+    db.refresh(employee)
+    return employee
+
+
+@router.post("/{employee_id}/deactivate", response_model=EmployeeOut)
+def deactivate_employee(employee_id: str, db: Session = Depends(get_db)):
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    employee.is_active = False
+    db.commit()
+    db.refresh(employee)
+    return employee
+
+
+@router.post("/{employee_id}/activate", response_model=EmployeeOut)
+def activate_employee(employee_id: str, db: Session = Depends(get_db)):
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    employee.is_active = True
     db.commit()
     db.refresh(employee)
     return employee

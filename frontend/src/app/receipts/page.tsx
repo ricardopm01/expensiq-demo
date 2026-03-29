@@ -16,6 +16,7 @@ import {
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
+import { PeriodBanner } from '@/components/period-banner';
 import type { Receipt, Employee } from '@/types';
 import { CATEGORY_LABEL } from '@/types';
 
@@ -142,6 +143,9 @@ function ReceiptsPage() {
 
   return (
     <div className="space-y-5">
+      {/* Period status banner — employees only */}
+      {isEmployee && <PeriodBanner />}
+
       {/* Upload */}
       <Card className="p-5">
         <SectionHeader

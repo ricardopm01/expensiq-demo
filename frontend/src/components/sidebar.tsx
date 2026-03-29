@@ -15,6 +15,7 @@ import {
   Shield,
   X,
   ChevronDown,
+  Calendar,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useRole } from '@/lib/role-context';
@@ -27,6 +28,7 @@ const ADMIN_NAV = [
   { href: '/alerts', label: 'Alertas', icon: Bell },
   { href: '/approvals', label: 'Aprobaciones', icon: CheckSquare },
   { href: '/employees', label: 'Empleados', icon: Users },
+  { href: '/periods', label: 'Quincenas', icon: Calendar },
 ];
 
 const EMPLOYEE_NAV = [

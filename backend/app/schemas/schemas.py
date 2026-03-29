@@ -32,6 +32,7 @@ class EmployeeOut(BaseModel):
     department: Optional[str] = None
     role: str
     monthly_budget: Optional[float] = None
+    is_active: bool = True
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

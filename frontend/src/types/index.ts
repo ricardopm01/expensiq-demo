@@ -7,6 +7,7 @@ export interface Employee {
   department: string | null;
   role: string;
   monthly_budget: number | null;
+  is_active: boolean;
   created_at: string | null;
 }
 
@@ -253,4 +254,20 @@ export interface ImportResult {
   created: number;
   skipped: number;
   errors: string[];
+}
+
+// ── Periods ────────────────────────────────────────────────────────
+
+export interface Period {
+  id: string;
+  start_date: string;
+  end_date: string;
+  status: 'open' | 'closed';
+  closed_at: string | null;
+}
+
+export interface EmployeePeriodStatus {
+  employee: Employee;
+  receipt_count: number;
+  has_submitted: boolean;
 }

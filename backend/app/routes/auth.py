@@ -104,3 +104,42 @@ def get_me(current_user: Employee = Depends(get_current_user)):
 def logout():
     # JWT is stateless — client just discards the token
     return {"status": "ok"}
+
+
+class DevLoginRequest(BaseModel):
+    email: str
+    role: str = "employee"
+
+
+@router.post("/dev-login", response_model=AuthResponse)
+def dev_login(body: DevLoginRequest, db: Session = Depends(get_db)):
+    """DEV ONLY — login without Google. Disabled in production."""
+    import os
+    if os.getenv("DEV_MODE", "false").lower() != "true":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+    if not body.email.endswith(f"@{settings.ALLOWED_DOMAIN}"):
+        raise HTTPException(status_code=400, detail=f"Email must be @{settings.ALLOWED_DOMAIN}")
+
+    employee = db.query(Employee).filter(Employee.email == body.email).first()
+    if not employee:
+        employee = Employee(
+            name=body.email.split("@")[0].replace(".", " ").title(),
+            email=body.email,
+            role=body.role,
+            is_active=True,
+        )
+        db.add(employee)
+
+    employee.last_login = datetime.utcnow()
+    db.commit()
+    db.refresh(employee)
+
+    token = create_access_token(str(employee.id), employee.email, employee.role)
+    return AuthResponse(
+        access_token=token,
+        employee_id=str(employee.id),
+        name=employee.name,
+        email=employee.email,
+        role=employee.role,
+    )
