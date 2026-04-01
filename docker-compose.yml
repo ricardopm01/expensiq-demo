@@ -67,6 +67,7 @@ services:
       S3_ENDPOINT:        http://minio:9000
       AWS_ACCESS_KEY_ID:  minioadmin
       AWS_SECRET_ACCESS_KEY: minioadmin
+      DEV_MODE:           "true"
       OCR_PROVIDER:       ${OCR_PROVIDER:-mock}
       ANTHROPIC_API_KEY:  ${ANTHROPIC_API_KEY:-}
       GOOGLE_VISION_API_KEY: ${GOOGLE_VISION_API_KEY:-}
@@ -90,6 +91,7 @@ services:
       - backend
     environment:
       NEXT_PUBLIC_API_URL: http://backend:8000
+      NEXT_PUBLIC_DEV_MODE: "true"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

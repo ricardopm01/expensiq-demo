@@ -23,7 +23,10 @@ CREATE TABLE employees (
     department     VARCHAR(100),
     role           user_role NOT NULL DEFAULT 'employee',
     monthly_budget NUMERIC(10,2),
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    google_id      VARCHAR(255) UNIQUE,
+    is_active      BOOLEAN NOT NULL DEFAULT TRUE,
+    last_login     TIMESTAMPTZ
 );
 
 -- ── Receipts ─────────────────────────────────────────────────────────

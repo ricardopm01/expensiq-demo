@@ -4,8 +4,9 @@ const nextConfig = {
     const apiHost = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return [
       {
-        source: '/api/:path*',
-        destination: `${apiHost}/api/:path*`,
+        // /api/auth/* is handled by NextAuth internally — must NOT be proxied
+        source: '/api/v1/:path*',
+        destination: `${apiHost}/api/v1/:path*`,
       },
     ];
   },
