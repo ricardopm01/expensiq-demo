@@ -108,28 +108,20 @@ def logout():
 
 class DevLoginRequest(BaseModel):
     email: str
-    role: str = "employee"
 
 
 @router.post("/dev-login", response_model=AuthResponse)
 def dev_login(body: DevLoginRequest, db: Session = Depends(get_db)):
-    """DEV ONLY — login without Google. Disabled in production."""
+    """Login by email only — looks up existing user in DB and returns their real role."""
     import os
     if os.getenv("DEV_MODE", "false").lower() != "true":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
-    if not body.email.endswith(f"@{settings.ALLOWED_DOMAIN}"):
-        raise HTTPException(status_code=400, detail=f"Email must be @{settings.ALLOWED_DOMAIN}")
-
     employee = db.query(Employee).filter(Employee.email == body.email).first()
     if not employee:
-        employee = Employee(
-            name=body.email.split("@")[0].replace(".", " ").title(),
-            email=body.email,
-            role=body.role,
-            is_active=True,
-        )
-        db.add(employee)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existe ningún usuario con ese email")
+    if not employee.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta desactivada")
 
     employee.last_login = datetime.utcnow()
     db.commit()

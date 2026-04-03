@@ -11,13 +11,12 @@ import {
   CheckSquare,
   Zap,
   User,
-  UserCircle,
-  Shield,
+  LogOut,
   X,
-  ChevronDown,
   Calendar,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { signOut } from 'next-auth/react';
 import { useRole } from '@/lib/role-context';
 import { ROLE_LABELS } from '@/types';
 
@@ -44,7 +43,7 @@ interface SidebarProps {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { role, setRole, employeeId, setEmployeeId, employees } = useRole();
+  const { role, employeeName } = useRole();
 
   const navItems = role === 'employee' ? EMPLOYEE_NAV : ADMIN_NAV;
 
@@ -107,43 +106,24 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           })}
         </nav>
 
-        {/* Role & identity selector — bottom */}
-        <div className="px-3 pb-3 space-y-2 border-t border-slate-800 pt-3">
-          {/* Employee picker (only when role=employee) */}
-          {role === 'employee' && employees.length > 0 && (
-            <div className="relative">
-              <UserCircle className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-400 pointer-events-none" />
-              <select
-                value={employeeId || ''}
-                onChange={(e) => setEmployeeId(e.target.value || null)}
-                className="w-full text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg pl-7 pr-6 py-2 appearance-none cursor-pointer hover:bg-emerald-500/15 transition-colors outline-none"
-              >
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id} className="bg-slate-900 text-slate-200">{emp.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-emerald-400 pointer-events-none" />
+        {/* User info + logout — bottom */}
+        <div className="px-3 pb-3 border-t border-slate-800 pt-3">
+          <div className="flex items-center gap-2.5 px-2 py-2 mb-1">
+            <div className="w-7 h-7 rounded-full bg-indigo-500/20 flex items-center justify-center flex-shrink-0">
+              <User className="w-3.5 h-3.5 text-indigo-400" />
             </div>
-          )}
-
-          {/* Role selector */}
-          <div className="relative">
-            <Shield className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-indigo-400 pointer-events-none" />
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'employee' | 'admin')}
-              className="w-full text-xs font-medium text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-lg pl-7 pr-6 py-2 appearance-none cursor-pointer hover:bg-indigo-500/15 transition-colors outline-none"
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-slate-200 truncate">{employeeName ?? '—'}</p>
+              <p className="text-[10px] text-slate-500">{ROLE_LABELS[role] ?? role}</p>
+            </div>
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              title="Cerrar sesión"
+              className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0"
             >
-              {Object.entries(ROLE_LABELS).map(([k, v]) => (
-                <option key={k} value={k} className="bg-slate-900 text-slate-200">{v}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-indigo-400 pointer-events-none" />
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
-
-          <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center pt-1">
-            ExpensIQ Demo v3.0
-          </p>
         </div>
       </aside>
     </>

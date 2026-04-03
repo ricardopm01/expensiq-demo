@@ -38,7 +38,7 @@ class Employee(Base):
 
     receipts = relationship("Receipt", back_populates="employee", foreign_keys="[Receipt.employee_id]")
     alerts = relationship("Alert", back_populates="employee")
-    period_statuses = relationship("EmployeePeriodStatus", back_populates="employee")
+    period_statuses = relationship("EmployeePeriodStatus", back_populates="employee", foreign_keys="[EmployeePeriodStatus.employee_id]")
 
 
 class Receipt(Base):

@@ -9,12 +9,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     ...(DEV_MODE ? [
       Credentials({
-        credentials: { email: {}, role: {} },
+        credentials: { email: {} },
         async authorize(credentials) {
           const res = await fetch(`${API_URL}/api/v1/auth/dev-login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: credentials.email, role: credentials.role }),
+            body: JSON.stringify({ email: credentials.email }),
           });
           if (!res.ok) return null;
           const data = await res.json();
@@ -29,6 +29,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     ]),
   ],
   callbacks: {
+    authorized({ auth }) {
+      return !!auth; // unauthenticated → redirect to /login
+    },
     async signIn({ account }) {
       return account?.provider === "google" || account?.provider === "credentials";
     },
