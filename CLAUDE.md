@@ -3,7 +3,7 @@
 ## Qué es este proyecto
 
 **ExpensIQ** es una demo para cliente de un sistema de gestión de gastos con IA.
-Dos desarrolladores colaboran en él: Ricardo Pichardo (Edrai Solutions) y su socio.
+El equipo: Ricardo Pichardo (Edrai Solutions, propietario), Alejandro (técnico, revisor de PRs) y Marcos (desarrollador).
 
 **Problema de negocio**: Una empleada recibe facturas físicas, las fotografía, las organiza en Excel y verifica manualmente contra extractos bancarios. ExpensIQ automatiza ese flujo completo: OCR → conciliación automática → alertas → aprobación.
 
@@ -259,20 +259,41 @@ cloudflared tunnel --url http://localhost:8000
 
 ## Flujo de trabajo colaborativo
 
-Dos devs trabajan en ramas separadas:
+### Equipo
+- **Ricardo Pichardo** (`ricardopm01`) — propietario del repo, admin, hace los merges
+- **Alejandro** (`alepm03`) — técnico, revisa y aprueba PRs
+- **Marcos** (`marcospalocast`) — desarrollador, abre PRs con los cambios
+
+### Flujo estándar
+
+1. Crear rama nueva con nombre descriptivo:
 ```bash
-git checkout -b feat/mi-feature
-# ... cambios ...
-git push origin feat/mi-feature
-# → PR en GitHub → review → merge a main
+git checkout -b feat/nombre-del-cambio
 ```
 
-Para sincronizar:
+2. Al terminar los cambios, incluir un archivo `.md` en la rama que documente qué se ha cambiado y por qué (para que el resto del equipo y sus Claudes puedan entenderlo sin leer el código).
+
+3. Subir la rama y abrir un PR hacia `main`:
 ```bash
+git push origin feat/nombre-del-cambio
+# → Abrir PR en GitHub con descripción clara
+```
+
+4. Alejandro revisa y aprueba el PR en GitHub.
+
+5. Ricardo hace el merge desde GitHub.
+
+6. Hacer pull a main para tener la versión actualizada:
+```bash
+git checkout main
 git pull origin main
 ```
 
-Seedear datos demo tras clonar:
+### Nombre del repositorio
+- Remoto GitHub: `expensiq-demo`
+- Local: `expensiq-demo` (en `Documents/IA/Clientes/expensiq-demo`)
+
+### Seedear datos demo tras clonar
 ```bash
 python demo_data_loader.py
 ```

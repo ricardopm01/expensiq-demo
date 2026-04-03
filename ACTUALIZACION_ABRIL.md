@@ -33,7 +33,6 @@ Estos son todos los usuarios que podéis usar para entrar:
 
 | Email | Nombre | Rol |
 |---|---|---|
-| `admin@lezama.es` | Admin | Administrador — ve todo |
 | `miguel@empresa.com` | Miguel Fernandez Diaz | Administrador — ve todo |
 | `carlos@empresa.com` | Carlos Ruiz Martin | Manager |
 | `javier@empresa.com` | Javier Ortega Blanco | Manager |

@@ -8,7 +8,10 @@ Sistema de gestión de gastos con IA que automatiza la extracción de datos de r
 # 1. Configurar variables de entorno
 cp .env.example .env
 
-# 2. Arrancar todos los servicios
+# 2. Arrancar todos los servicios (Mac ARM64: usa start.sh, gestiona Colima automáticamente)
+./start.sh
+
+# En otros sistemas:
 docker compose up --build
 
 # 3. Abrir el frontend
@@ -28,8 +31,18 @@ open http://localhost:3000
 ## Uso de la demo
 
 1. Abre http://localhost:3000
-2. Haz clic en **"Cargar Demo Completo"** en el Dashboard
-3. Explora las páginas: Recibos, Transacciones, Alertas, Empleados
+2. Introduce el email de cualquier usuario demo y pulsa **Entrar** (sin contraseña)
+3. Explora las páginas: Recibos, Transacciones, Alertas, Empleados, Quincenas
+
+Usuarios disponibles:
+
+| Email | Rol |
+|---|---|
+| `miguel@empresa.com` | Administrador |
+| `carlos@empresa.com` | Manager |
+| `ana@empresa.com` | Empleada |
+
+Para cambiar de usuario: botón de cierre de sesión abajo a la izquierda en la barra lateral.
 
 ## Arquitectura
 
@@ -45,7 +58,7 @@ Next.js 14 Frontend (:3000) → FastAPI Backend (:8000) → PostgreSQL
 - **Backend**: Python 3.11, FastAPI, SQLAlchemy, Pydantic
 - **Base de datos**: PostgreSQL 15
 - **Almacenamiento**: MinIO (compatible S3)
-- **OCR**: Mock (demo) / Claude Vision (próximamente)
+- **OCR**: Mock (demo) / Claude Vision (activar con `OCR_PROVIDER=claude`)
 - **Infraestructura**: Docker Compose (5 servicios)
 
 ## Desarrollo
