@@ -147,8 +147,14 @@ git checkout -b feat/nombre-de-tu-feature
 git add ...
 git commit -m "feat: descripción del cambio"
 git push origin feat/nombre-de-tu-feature
-# → Crear PR en GitHub → Ricardo revisa → merge
+# → Crear PR en GitHub → Alejandro revisa y aprueba → Ricardo hace merge
 ```
+
+### Regla 1b — Documentar los cambios en cada rama
+
+Cada rama debe incluir un archivo `.md` que explique qué se ha cambiado y por qué. Esto permite que el resto del equipo (y sus Claudes) entiendan los cambios sin leer el código.
+
+Ejemplo: `ACTUALIZACION_ABRIL.md`, `HANDOFF_FASE_D.md`.
 
 ### Regla 2 — Sincronizar antes de empezar
 
@@ -214,8 +220,10 @@ Comandos útiles al trabajar con Claude:
 | A | **COMPLETADA** | Frontend Next.js 14 (reemplaza SPA monolítico) |
 | B | **COMPLETADA** | Claude Vision OCR + detección anomalías con IA |
 | C | **COMPLETADA** | Workflow aprobación multinivel + dashboard enriquecido |
-| D | **SIGUIENTE** | Import CSV bancario + predicción presupuesto IA (ver HANDOFF_FASE_D.md) |
-| E | Pendiente | Pulido visual + datos demo definitivos |
+| D | **COMPLETADA** | Import CSV bancario Rural Kutxa, vistas empleado vs admin, drag-and-drop |
+| E | **COMPLETADA** | Responsive mobile, skeleton screens, datos demo definitivos españoles |
+| F | **COMPLETADA** | Comparativa por departamento, predicción IA por empleado, alertas presupuesto |
+| G | **COMPLETADA** | Google OAuth + JWT, pantalla login, quincenas, recordatorios email |
 
 ---
 
