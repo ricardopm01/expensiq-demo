@@ -21,7 +21,7 @@ router = APIRouter()
 # ── Schemas ────────────────────────────────────────────────────────────────
 
 class PeriodOut(BaseModel):
-    id: str
+    id: uuid.UUID
     start_date: date
     end_date: date
     status: str
