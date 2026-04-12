@@ -81,7 +81,7 @@ def get_current_period(
     return _get_or_create_current_period(db)
 
 
-@router.get("/", response_model=List[PeriodOut])
+@router.get("", response_model=List[PeriodOut])
 def list_periods(
     db: Session = Depends(get_db),
     _: Employee = Depends(require_admin),

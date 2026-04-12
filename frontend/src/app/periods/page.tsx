@@ -181,7 +181,7 @@ export default function PeriodsPage() {
     try {
       const [current, allPeriods, employees] = await Promise.all([
         api.get<Period>('/periods/current'),
-        api.get<Period[]>('/periods/'),
+        api.get<Period[]>('/periods'),
         api.get<Employee[]>('/employees'),
       ]);
 
