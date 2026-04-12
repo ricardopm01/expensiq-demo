@@ -11,6 +11,8 @@ import {
   ChevronUp,
   Clock,
   FileDown,
+  Flag,
+  ClipboardCheck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -22,48 +24,57 @@ import {
   SkeletonBlock,
   EmptyState,
 } from '@/components/ui';
-import type { Period, EmployeePeriodStatus, Employee, Receipt } from '@/types';
+import type { Period, EmployeePeriodStatus, Employee, Receipt, ReviewSummary } from '@/types';
 
 // ── Helpers ────────────────────────────────────────────────────────
 
 function daysRemaining(endDate: string): number {
   const end = new Date(endDate);
   end.setHours(23, 59, 59, 999);
-  const now = new Date();
-  return Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86400000));
+  return Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86400000));
 }
 
 function formatDateRange(start: string, end: string): string {
-  const s = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(
-    new Date(start)
-  );
-  const e = new Intl.DateTimeFormat('es-ES', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(end));
+  const s = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short' }).format(new Date(start));
+  const e = new Intl.DateTimeFormat('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(end));
   return `${s} — ${e}`;
 }
 
-// ── Period Status Badge ────────────────────────────────────────────
+// ── Badges ─────────────────────────────────────────────────────────
 
 function PeriodStatusBadge({ status }: { status: 'open' | 'closed' }) {
   const isOpen = status === 'open';
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${
-        isOpen
-          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-          : 'bg-red-500/15 text-red-400 border border-red-500/25'
-      }`}
-    >
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${
+      isOpen
+        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
+        : 'bg-red-500/15 text-red-400 border border-red-500/25'
+    }`}>
       {isOpen ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
       {isOpen ? 'Abierto' : 'Cerrado'}
     </span>
   );
 }
 
-// ── Page Skeleton ──────────────────────────────────────────────────
+function ReviewBadge({ status }: { status: 'pending' | 'approved' | 'flagged' }) {
+  if (status === 'approved') return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+      <CheckCircle className="w-3 h-3" /> Aprobado
+    </span>
+  );
+  if (status === 'flagged') return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-500/15 text-red-400 border border-red-500/25">
+      <Flag className="w-3 h-3" /> Incidencia
+    </span>
+  );
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-500/15 text-slate-400 border border-slate-700">
+      <Clock className="w-3 h-3" /> Pendiente
+    </span>
+  );
+}
+
+// ── Skeletons & Dialogs ────────────────────────────────────────────
 
 function PageSkeleton() {
   return (
@@ -75,18 +86,8 @@ function PageSkeleton() {
   );
 }
 
-// ── Confirm Dialog ─────────────────────────────────────────────────
-
-function ConfirmDialog({
-  message,
-  onConfirm,
-  onCancel,
-  loading,
-}: {
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  loading: boolean;
+function ConfirmDialog({ message, onConfirm, onCancel, loading }: {
+  message: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
@@ -101,17 +102,49 @@ function ConfirmDialog({
           </div>
         </div>
         <div className="flex gap-2 justify-end">
-          <Btn variant="secondary" size="sm" onClick={onCancel} disabled={loading}>
-            Cancelar
+          <Btn variant="secondary" size="sm" onClick={onCancel} disabled={loading}>Cancelar</Btn>
+          <Btn variant="danger" size="sm" onClick={onConfirm} loading={loading}>
+            <Lock className="w-3.5 h-3.5" /> Cerrar periodo
           </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FlagModal({ employeeName, onConfirm, onCancel, loading }: {
+  employeeName: string; onConfirm: (note: string) => void; onCancel: () => void; loading: boolean;
+}) {
+  const [note, setNote] = useState('');
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+            <Flag className="w-4 h-4 text-amber-400" />
+          </div>
+          <div>
+            <p className="font-semibold text-slate-100 text-sm">Señalar incidencia</p>
+            <p className="text-slate-400 text-xs mt-1">{employeeName} recibirá un aviso con tu explicación</p>
+          </div>
+        </div>
+        <textarea
+          className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-xl px-3 py-2.5 mb-4 outline-none focus:border-amber-500/50 resize-none placeholder:text-slate-600"
+          rows={3}
+          placeholder="Describe el problema (ej: falta recibo del 3 de abril, importe incorrecto...)"
+          value={note}
+          onChange={e => setNote(e.target.value)}
+        />
+        <div className="flex gap-2 justify-end">
+          <Btn variant="secondary" size="sm" onClick={onCancel} disabled={loading}>Cancelar</Btn>
           <Btn
             variant="danger"
             size="sm"
-            onClick={onConfirm}
+            onClick={() => note.trim() && onConfirm(note.trim())}
             loading={loading}
+            disabled={!note.trim()}
           >
-            <Lock className="w-3.5 h-3.5" />
-            Cerrar periodo
+            <Flag className="w-3.5 h-3.5" /> Enviar aviso
           </Btn>
         </div>
       </div>
@@ -128,12 +161,16 @@ export default function PeriodsPage() {
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeePeriodStatus[]>([]);
+  const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [closingPeriod, setClosingPeriod] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState<string | null>(null);
+  const [flagging, setFlagging] = useState<string | null>(null);
+  const [approving, setApproving] = useState<string | null>(null);
+  const [flagModal, setFlagModal] = useState<{ id: string; name: string } | null>(null);
 
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
@@ -143,33 +180,40 @@ export default function PeriodsPage() {
 
   const buildEmployeeStatuses = useCallback(
     async (period: Period, employees: Employee[]): Promise<EmployeePeriodStatus[]> => {
-      const onlyEmployees = employees.filter((e) => e.role === 'employee');
+      const onlyEmployees = employees.filter(e => e.role === 'employee');
 
-      const receiptResults = await Promise.allSettled(
-        onlyEmployees.map((e) =>
-          api.get<Receipt[]>(`/receipts?employee_id=${e.id}`).catch(() => [] as Receipt[])
-        )
-      );
+      // Fetch receipts + review statuses in parallel
+      const [receiptResults, reviewStatuses] = await Promise.all([
+        Promise.allSettled(
+          onlyEmployees.map(e =>
+            api.get<Receipt[]>(`/receipts?employee_id=${e.id}`).catch(() => [] as Receipt[])
+          )
+        ),
+        api.get<{ employee_id: string; review_status: string; review_note?: string }[]>(
+          `/periods/${period.id}/employee-statuses`
+        ).catch(() => []),
+      ]);
 
+      const reviewMap = new Map(reviewStatuses.map(r => [r.employee_id, r]));
       const periodStart = new Date(period.start_date);
       const periodEnd = new Date(period.end_date);
       periodEnd.setHours(23, 59, 59, 999);
 
       return onlyEmployees.map((emp, idx) => {
         const result = receiptResults[idx];
-        const allReceipts: Receipt[] =
-          result.status === 'fulfilled' ? (result.value as Receipt[]) : [];
-
-        const periodReceipts = allReceipts.filter((r) => {
+        const allReceipts: Receipt[] = result.status === 'fulfilled' ? (result.value as Receipt[]) : [];
+        const periodReceipts = allReceipts.filter(r => {
           if (!r.date) return false;
           const d = new Date(r.date);
           return d >= periodStart && d <= periodEnd;
         });
-
+        const rev = reviewMap.get(emp.id);
         return {
           employee: emp,
           receipt_count: periodReceipts.length,
           has_submitted: periodReceipts.length > 0,
+          review_status: (rev?.review_status as 'pending' | 'approved' | 'flagged') ?? 'pending',
+          review_note: rev?.review_note ?? null,
         };
       });
     },
@@ -184,12 +228,12 @@ export default function PeriodsPage() {
         api.get<Period[]>('/periods'),
         api.get<Employee[]>('/employees'),
       ]);
-
       setCurrentPeriod(current);
       setPeriods(allPeriods);
-
       const statuses = await buildEmployeeStatuses(current, employees);
       setEmployeeStatuses(statuses);
+      const summary = await api.get<ReviewSummary>(`/periods/${current.id}/review-summary`).catch(() => null);
+      setReviewSummary(summary);
     } catch {
       toast.error('Error cargando datos de periodos');
     } finally {
@@ -197,9 +241,7 @@ export default function PeriodsPage() {
     }
   }, [buildEmployeeStatuses, toast]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
   // ── Actions ──────────────────────────────────────────────────────
 
@@ -220,13 +262,12 @@ export default function PeriodsPage() {
   const handleDownloadPdf = async (periodId: string, filename: string) => {
     setDownloadingPdf(periodId);
     try {
-      // Use raw fetch so we can handle binary response
       const { getBackendToken } = await import('@/lib/api');
       const token = getBackendToken();
       const res = await fetch(`/api/v1/periods/${periodId}/report/pdf`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!res.ok) throw new Error('Error al generar el informe');
+      if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -254,64 +295,85 @@ export default function PeriodsPage() {
     }
   };
 
+  const handleApprove = async (employeeId: string) => {
+    if (!currentPeriod) return;
+    setApproving(employeeId);
+    try {
+      await api.post(`/periods/${currentPeriod.id}/review-employee/${employeeId}`, { action: 'approve' });
+      toast.success('Revisión aprobada');
+      load();
+    } catch {
+      toast.error('Error al aprobar');
+    } finally {
+      setApproving(null);
+    }
+  };
+
+  const handleFlag = async (note: string) => {
+    if (!currentPeriod || !flagModal) return;
+    setFlagging(flagModal.id);
+    try {
+      await api.post(`/periods/${currentPeriod.id}/review-employee/${flagModal.id}`, {
+        action: 'flag',
+        note,
+      });
+      toast.success('Aviso enviado al empleado');
+      setFlagModal(null);
+      load();
+    } catch {
+      toast.error('Error al enviar aviso');
+    } finally {
+      setFlagging(null);
+    }
+  };
+
   // ── Render ───────────────────────────────────────────────────────
 
   if (loading) return <PageSkeleton />;
 
-  const closedPeriods = periods
-    .filter((p) => p.status === 'closed')
-    .slice(0, 6);
-
-  const pendingCount = employeeStatuses.filter((s) => !s.has_submitted).length;
-  const submittedCount = employeeStatuses.filter((s) => s.has_submitted).length;
+  const closedPeriods = periods.filter(p => p.status === 'closed').slice(0, 6);
+  const pendingCount = employeeStatuses.filter(s => !s.has_submitted).length;
+  const submittedCount = employeeStatuses.filter(s => s.has_submitted).length;
+  const isClosed = currentPeriod?.status === 'closed';
 
   return (
     <div className="space-y-6">
-      {/* ── Current Period Header ─────────────────────────────────── */}
+
+      {/* ── Current Period Header ──────────────────────────────────── */}
       {currentPeriod ? (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            {/* Left: Icon + Period Info */}
             <div className="flex items-center gap-4 min-w-0 flex-1">
               <div className="w-12 h-12 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center flex-shrink-0">
                 <Calendar className="w-6 h-6 text-indigo-400" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="text-base font-semibold text-slate-100">
-                    Quincena actual
-                  </h2>
+                  <h2 className="text-base font-semibold text-slate-100">Quincena actual</h2>
                   <PeriodStatusBadge status={currentPeriod.status} />
                 </div>
                 <p className="text-sm text-slate-400 mt-0.5">
                   {formatDateRange(currentPeriod.start_date, currentPeriod.end_date)}
                 </p>
                 {currentPeriod.closed_at && (
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Cerrado el {fmt.date(currentPeriod.closed_at)}
-                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">Cerrado el {fmt.date(currentPeriod.closed_at)}</p>
                 )}
               </div>
             </div>
 
-            {/* Right: Countdown + Action */}
-            <div className="flex items-center gap-4 sm:flex-shrink-0">
-              {currentPeriod.status === 'open' && (
+            <div className="flex items-center gap-3 sm:flex-shrink-0 flex-wrap">
+              {!isClosed && (
                 <div className="flex items-center gap-2 text-sm">
                   <Clock className="w-4 h-4 text-amber-400" />
                   <span className="text-slate-300">
-                    <span className="font-semibold text-amber-300">
-                      {daysRemaining(currentPeriod.end_date)}
-                    </span>{' '}
+                    <span className="font-semibold text-amber-300">{daysRemaining(currentPeriod.end_date)}</span>{' '}
                     {daysRemaining(currentPeriod.end_date) === 1 ? 'día restante' : 'días restantes'}
                   </span>
                 </div>
               )}
-
               {isAdmin && (
                 <Btn
-                  variant="secondary"
-                  size="sm"
+                  variant="secondary" size="sm"
                   loading={downloadingPdf === currentPeriod.id}
                   onClick={() => {
                     const s = currentPeriod.start_date.replace(/-/g, '');
@@ -319,26 +381,19 @@ export default function PeriodsPage() {
                     handleDownloadPdf(currentPeriod.id, `expensiq_informe_${s}_${e}.pdf`);
                   }}
                 >
-                  <FileDown className="w-3.5 h-3.5" />
-                  Informe PDF
+                  <FileDown className="w-3.5 h-3.5" /> Informe PDF
                 </Btn>
               )}
-
-              {isAdmin && currentPeriod.status === 'open' && (
-                <Btn
-                  variant="danger"
-                  size="sm"
-                  onClick={() => setShowConfirm(true)}
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  Cerrar periodo
+              {isAdmin && !isClosed && (
+                <Btn variant="danger" size="sm" onClick={() => setShowConfirm(true)}>
+                  <Lock className="w-3.5 h-3.5" /> Cerrar periodo
                 </Btn>
               )}
             </div>
           </div>
 
-          {/* Summary stats */}
-          {currentPeriod.status === 'open' && employeeStatuses.length > 0 && (
+          {/* Stats row — different content depending on period state */}
+          {!isClosed && employeeStatuses.length > 0 && (
             <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-3 gap-4">
               <div className="text-center">
                 <p className="text-xl font-bold text-slate-100">{employeeStatuses.length}</p>
@@ -354,65 +409,84 @@ export default function PeriodsPage() {
               </div>
             </div>
           )}
+
+          {/* Review progress bar — only when closed */}
+          {isClosed && reviewSummary && isAdmin && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-medium text-slate-300">Revisión de quincena</span>
+                </div>
+                <span className="text-xs text-slate-400">
+                  {reviewSummary.approved + reviewSummary.flagged} / {reviewSummary.total} revisados
+                  {reviewSummary.complete && (
+                    <span className="ml-2 text-emerald-400 font-semibold">✓ Completa</span>
+                  )}
+                </span>
+              </div>
+              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full flex">
+                  <div
+                    className="bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${reviewSummary.total ? (reviewSummary.approved / reviewSummary.total) * 100 : 0}%` }}
+                  />
+                  <div
+                    className="bg-red-500 transition-all duration-500"
+                    style={{ width: `${reviewSummary.total ? (reviewSummary.flagged / reviewSummary.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 mt-2">
+                <span className="text-[11px] text-emerald-400">{reviewSummary.approved} aprobados</span>
+                <span className="text-[11px] text-red-400">{reviewSummary.flagged} con incidencia</span>
+                <span className="text-[11px] text-slate-500">{reviewSummary.pending} pendientes</span>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-          <EmptyState
-            icon={<Calendar className="w-12 h-12" />}
-            title="Sin periodo activo"
-            desc="No hay ninguna quincena abierta en este momento."
-          />
+          <EmptyState icon={<Calendar className="w-12 h-12" />} title="Sin periodo activo" desc="No hay ninguna quincena abierta." />
         </div>
       )}
 
-      {/* ── Employee Submission Table ─────────────────────────────── */}
+      {/* ── Employee Table ────────────────────────────────────────── */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <div className="px-5 pt-5 pb-4 border-b border-slate-800">
           <SectionHeader
-            title="Estado de envíos"
-            subtitle={
-              currentPeriod
-                ? `Quincena ${formatDateRange(currentPeriod.start_date, currentPeriod.end_date)}`
-                : 'Sin periodo activo'
-            }
+            title={isClosed ? 'Revisión de empleados' : 'Estado de envíos'}
+            subtitle={currentPeriod
+              ? `Quincena ${formatDateRange(currentPeriod.start_date, currentPeriod.end_date)}`
+              : 'Sin periodo activo'}
           />
         </div>
 
         {employeeStatuses.length === 0 ? (
-          <EmptyState
-            icon={<AlertCircle className="w-12 h-12" />}
-            title="Sin empleados"
-            desc="No hay empleados registrados con rol de empleado."
-          />
+          <EmptyState icon={<AlertCircle className="w-12 h-12" />} title="Sin empleados" desc="No hay empleados registrados." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800">
-                  {['Empleado', 'Departamento', 'Recibos', 'Estado', ...(isAdmin ? ['Acción'] : [])].map(
-                    (h) => (
-                      <th
-                        key={h}
-                        className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
+                  {[
+                    'Empleado', 'Departamento', 'Recibos', 'Envío',
+                    ...(isClosed ? ['Revisión'] : []),
+                    ...(isAdmin ? ['Acción'] : []),
+                  ].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
-                {employeeStatuses.map(({ employee, receipt_count, has_submitted }) => {
-                  const canReopen =
-                    isAdmin &&
-                    currentPeriod?.status === 'closed' &&
-                    !has_submitted;
+                {employeeStatuses.map(({ employee, receipt_count, has_submitted, review_status, review_note }) => {
+                  const canReopen = isAdmin && isClosed && !has_submitted;
+                  const canReview = isAdmin && isClosed;
 
                   return (
-                    <tr
-                      key={employee.id}
-                      className="hover:bg-slate-800/40 transition-colors"
-                    >
+                    <tr key={employee.id} className="hover:bg-slate-800/40 transition-colors">
                       {/* Name */}
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
@@ -422,9 +496,7 @@ export default function PeriodsPage() {
                             </span>
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-slate-200 whitespace-nowrap">
-                              {employee.name}
-                            </p>
+                            <p className="text-sm font-medium text-slate-200 whitespace-nowrap">{employee.name}</p>
                             <p className="text-[11px] text-slate-500">{employee.email}</p>
                           </div>
                         </div>
@@ -432,51 +504,84 @@ export default function PeriodsPage() {
 
                       {/* Department */}
                       <td className="px-5 py-3.5">
-                        <span className="text-sm text-slate-400">
-                          {employee.department ?? '—'}
-                        </span>
+                        <span className="text-sm text-slate-400">{employee.department ?? '—'}</span>
                       </td>
 
                       {/* Receipt count */}
                       <td className="px-5 py-3.5">
-                        <span className="text-sm font-semibold text-slate-300">
-                          {receipt_count}
-                        </span>
+                        <span className="text-sm font-semibold text-slate-300">{receipt_count}</span>
                       </td>
 
-                      {/* Status */}
+                      {/* Submission status */}
                       <td className="px-5 py-3.5">
                         {has_submitted ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                            <CheckCircle className="w-3 h-3" />
-                            Enviado
+                            <CheckCircle className="w-3 h-3" /> Enviado
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                            <AlertCircle className="w-3 h-3" />
-                            Sin recibos
+                            <AlertCircle className="w-3 h-3" /> Sin recibos
                           </span>
                         )}
                       </td>
 
-                      {/* Admin action */}
+                      {/* Review status — only when closed */}
+                      {isClosed && (
+                        <td className="px-5 py-3.5">
+                          <div>
+                            <ReviewBadge status={review_status} />
+                            {review_note && (
+                              <p className="text-[11px] text-slate-500 mt-1 max-w-[200px] truncate" title={review_note}>
+                                {review_note}
+                              </p>
+                            )}
+                          </div>
+                        </td>
+                      )}
+
+                      {/* Admin actions */}
                       {isAdmin && (
                         <td className="px-5 py-3.5">
-                          {canReopen && currentPeriod ? (
-                            <Btn
-                              variant="secondary"
-                              size="sm"
-                              loading={reopeningId === employee.id}
-                              onClick={() =>
-                                handleReopenEmployee(currentPeriod.id, employee.id)
-                              }
-                            >
-                              <Unlock className="w-3.5 h-3.5" />
-                              Reabrir acceso
-                            </Btn>
-                          ) : (
-                            <span className="text-slate-600 text-xs">—</span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {canReview && review_status === 'pending' && (
+                              <>
+                                <Btn
+                                  variant="secondary" size="sm"
+                                  loading={approving === employee.id}
+                                  onClick={() => handleApprove(employee.id)}
+                                >
+                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> Aprobar
+                                </Btn>
+                                <Btn
+                                  variant="secondary" size="sm"
+                                  loading={flagging === employee.id}
+                                  onClick={() => setFlagModal({ id: employee.id, name: employee.name })}
+                                >
+                                  <Flag className="w-3.5 h-3.5 text-amber-400" /> Señalar
+                                </Btn>
+                              </>
+                            )}
+                            {canReview && review_status !== 'pending' && (
+                              <button
+                                onClick={() => review_status === 'approved'
+                                  ? setFlagModal({ id: employee.id, name: employee.name })
+                                  : handleApprove(employee.id)}
+                                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                              >
+                                Cambiar
+                              </button>
+                            )}
+                            {canReopen && currentPeriod && (
+                              <Btn
+                                variant="secondary" size="sm"
+                                loading={reopeningId === employee.id}
+                                onClick={() => handleReopenEmployee(currentPeriod.id, employee.id)}
+                              >
+                                <Unlock className="w-3.5 h-3.5" /> Reabrir
+                              </Btn>
+                            )}
+                            {!canReview && !canReopen && <span className="text-slate-600 text-xs">—</span>}
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -488,45 +593,34 @@ export default function PeriodsPage() {
         )}
       </div>
 
-      {/* ── Period History ────────────────────────────────────────── */}
+      {/* ── Period History ─────────────────────────────────────────── */}
       {closedPeriods.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <button
-            onClick={() => setHistoryExpanded((v) => !v)}
+            onClick={() => setHistoryExpanded(v => !v)}
             className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-800/40 transition-colors text-left"
           >
             <div>
               <p className="text-sm font-semibold text-slate-200">Historial de periodos</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {closedPeriods.length} quincenas cerradas
-              </p>
+              <p className="text-xs text-slate-500 mt-0.5">{closedPeriods.length} quincenas cerradas</p>
             </div>
-            {historyExpanded ? (
-              <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            )}
+            {historyExpanded
+              ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />}
           </button>
 
           {historyExpanded && (
             <div className="border-t border-slate-800 divide-y divide-slate-800/60">
-              {closedPeriods.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-800/30 transition-colors"
-                >
+              {closedPeriods.map(p => (
+                <div key={p.id} className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-800/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0">
                       <Calendar className="w-4 h-4 text-slate-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-slate-300">
-                        {formatDateRange(p.start_date, p.end_date)}
-                      </p>
+                      <p className="text-sm font-medium text-slate-300">{formatDateRange(p.start_date, p.end_date)}</p>
                       {p.closed_at && (
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Cerrado el {fmt.date(p.closed_at)}
-                        </p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">Cerrado el {fmt.date(p.closed_at)}</p>
                       )}
                     </div>
                   </div>
@@ -554,13 +648,21 @@ export default function PeriodsPage() {
         </div>
       )}
 
-      {/* ── Confirm Close Dialog ──────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────── */}
       {showConfirm && (
         <ConfirmDialog
-          message="Esta acción cerrará la quincena actual. Los empleados no podrán enviar recibos nuevos. Esta acción no se puede deshacer automáticamente."
+          message="Los empleados no podrán enviar recibos nuevos. Podrás revisar y aprobar cada envío a continuación."
           onConfirm={handleClosePeriod}
           onCancel={() => setShowConfirm(false)}
           loading={closingPeriod}
+        />
+      )}
+      {flagModal && (
+        <FlagModal
+          employeeName={flagModal.name}
+          onConfirm={handleFlag}
+          onCancel={() => setFlagModal(null)}
+          loading={flagging === flagModal.id}
         />
       )}
     </div>
