@@ -56,6 +56,7 @@ app = FastAPI(
     description="AI-powered expense management and reconciliation",
     version="1.0.0",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 # Disable Starlette's automatic trailing-slash redirects.

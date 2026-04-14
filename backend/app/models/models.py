@@ -153,5 +153,11 @@ class EmployeePeriodStatus(Base):
     reopened_at = Column(DateTime(timezone=True))
     reopened_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
 
+    # Review fields (admin review after period closes)
+    review_status = Column(String(20), nullable=False, default="pending")  # pending | approved | flagged
+    review_note = Column(Text)
+    reviewed_at = Column(DateTime(timezone=True))
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
+
     employee = relationship("Employee", back_populates="period_statuses", foreign_keys=[employee_id])
     period = relationship("Period", back_populates="employee_statuses")

@@ -21,7 +21,7 @@ router = APIRouter()
 # ── Schemas ────────────────────────────────────────────────────────────────
 
 class PeriodOut(BaseModel):
-    id: str
+    id: uuid.UUID
     start_date: date
     end_date: date
     status: str
@@ -37,6 +37,8 @@ class EmployeePeriodStatusOut(BaseModel):
     period_id: str
     status: str
     reopened_at: Optional[datetime]
+    review_status: str = "pending"
+    review_note: Optional[str] = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ def get_current_period(
     return _get_or_create_current_period(db)
 
 
-@router.get("/", response_model=List[PeriodOut])
+@router.get("", response_model=List[PeriodOut])
 def list_periods(
     db: Session = Depends(get_db),
     _: Employee = Depends(require_admin),
@@ -162,6 +164,8 @@ def get_employee_statuses(
             period_id=str(s.period_id),
             status=s.status,
             reopened_at=s.reopened_at,
+            review_status=s.review_status,
+            review_note=s.review_note,
         )
         for s in statuses
     ]
@@ -222,4 +226,125 @@ def can_i_submit(
         "period_id": str(period.id),
         "period_end": period.end_date.isoformat(),
         "period_status": period.status,
+    }
+
+
+# ── Review schemas ──────────────────────────────────────────────────────────
+
+class ReviewAction(BaseModel):
+    action: str  # "approve" | "flag"
+    note: Optional[str] = None
+
+
+class ReviewStatusOut(BaseModel):
+    employee_id: str
+    employee_name: str
+    review_status: str
+    review_note: Optional[str]
+    reviewed_at: Optional[datetime]
+
+
+# ── Review endpoints ────────────────────────────────────────────────────────
+
+@router.post("/{period_id}/review-employee/{employee_id}", response_model=ReviewStatusOut)
+def review_employee(
+    period_id: str,
+    employee_id: str,
+    body: ReviewAction,
+    db: Session = Depends(get_db),
+    current_user: Employee = Depends(require_full_admin),
+):
+    """Admin approves or flags an employee's receipts for a closed period."""
+    if body.action not in ("approve", "flag"):
+        raise HTTPException(status_code=400, detail="action debe ser 'approve' o 'flag'")
+    if body.action == "flag" and not body.note:
+        raise HTTPException(status_code=400, detail="Debes incluir una nota al señalar un problema")
+
+    period = db.query(Period).filter(Period.id == period_id).first()
+    if not period:
+        raise HTTPException(status_code=404, detail="Periodo no encontrado")
+
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Empleado no encontrado")
+
+    # Get or create the EPS record
+    eps = db.query(EmployeePeriodStatus).filter(
+        EmployeePeriodStatus.employee_id == employee_id,
+        EmployeePeriodStatus.period_id == period_id,
+    ).first()
+
+    if not eps:
+        eps = EmployeePeriodStatus(
+            id=uuid.uuid4(),
+            employee_id=uuid.UUID(employee_id),
+            period_id=uuid.UUID(period_id),
+            status="closed",
+        )
+        db.add(eps)
+
+    eps.review_status = "approved" if body.action == "approve" else "flagged"
+    eps.review_note = body.note
+    eps.reviewed_at = datetime.utcnow()
+    eps.reviewed_by = current_user.id
+
+    # If flagged: create an alert so the employee sees it in their alerts panel
+    if body.action == "flag":
+        alert = Alert(
+            id=uuid.uuid4(),
+            employee_id=uuid.UUID(employee_id),
+            alert_type="review_flagged",
+            severity="high",
+            description=(
+                f"Revisión quincena {period.start_date.strftime('%d/%m')}–"
+                f"{period.end_date.strftime('%d/%m/%Y')}: {body.note}"
+            ),
+            is_read=False,
+            resolved=False,
+            created_at=datetime.utcnow(),
+        )
+        db.add(alert)
+
+    db.commit()
+    db.refresh(eps)
+
+    return ReviewStatusOut(
+        employee_id=str(eps.employee_id),
+        employee_name=employee.name,
+        review_status=eps.review_status,
+        review_note=eps.review_note,
+        reviewed_at=eps.reviewed_at,
+    )
+
+
+@router.get("/{period_id}/review-summary")
+def review_summary(
+    period_id: str,
+    db: Session = Depends(get_db),
+    _: Employee = Depends(require_admin),
+):
+    """Returns review progress for a period: total employees, reviewed, pending."""
+    period = db.query(Period).filter(Period.id == period_id).first()
+    if not period:
+        raise HTTPException(status_code=404, detail="Periodo no encontrado")
+
+    all_employees = db.query(Employee).filter(Employee.role == "employee", Employee.is_active == True).all()
+    total = len(all_employees)
+
+    statuses = db.query(EmployeePeriodStatus).filter(
+        EmployeePeriodStatus.period_id == period_id
+    ).all()
+    status_map = {str(s.employee_id): s for s in statuses}
+
+    approved = sum(1 for e in all_employees if status_map.get(str(e.id), None) and status_map[str(e.id)].review_status == "approved")
+    flagged = sum(1 for e in all_employees if status_map.get(str(e.id), None) and status_map[str(e.id)].review_status == "flagged")
+    pending = total - approved - flagged
+
+    return {
+        "period_id": period_id,
+        "total": total,
+        "approved": approved,
+        "flagged": flagged,
+        "pending": pending,
+        "complete": pending == 0,
     }

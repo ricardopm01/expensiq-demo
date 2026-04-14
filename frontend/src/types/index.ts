@@ -270,4 +270,15 @@ export interface EmployeePeriodStatus {
   employee: Employee;
   receipt_count: number;
   has_submitted: boolean;
+  review_status: 'pending' | 'approved' | 'flagged';
+  review_note?: string | null;
+}
+
+export interface ReviewSummary {
+  period_id: string;
+  total: number;
+  approved: number;
+  flagged: number;
+  pending: number;
+  complete: boolean;
 }
