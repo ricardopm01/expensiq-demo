@@ -7,6 +7,8 @@ import {
   Zap,
   Filter,
   CheckCircle,
+  UserCog,
+  Crown,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -117,20 +119,27 @@ export default function ApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* KPIs — 3 tiers + approved today */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
-          label="Auto-aprobacion"
+          label="Auto (&lt;100€)"
           value={summary?.pending_auto ?? 0}
-          sub="Pendientes < 100 EUR"
+          sub="Aprobacion automatica"
           icon={<Zap className="w-5 h-5" />}
           accent="emerald"
         />
         <KPICard
-          label="Administrador"
-          value={summary?.pending_admin ?? 0}
-          sub="Pendientes >= 100 EUR"
-          icon={<Shield className="w-5 h-5" />}
+          label="Manager (100-500€)"
+          value={summary?.pending_manager ?? 0}
+          sub="Requiere manager"
+          icon={<UserCog className="w-5 h-5" />}
+          accent="indigo"
+        />
+        <KPICard
+          label="Director (≥500€)"
+          value={summary?.pending_director ?? 0}
+          sub="Requiere director"
+          icon={<Crown className="w-5 h-5" />}
           accent="indigo"
         />
         <KPICard
@@ -167,8 +176,10 @@ export default function ApprovalsPage() {
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600"
           >
             <option value="">Todos los niveles</option>
-            <option value="auto">Auto (&lt;100 EUR)</option>
-            <option value="admin">Administrador (&ge;100 EUR)</option>
+            <option value="auto">Auto (&lt;100€)</option>
+            <option value="manager">Manager (100-500€)</option>
+            <option value="director">Director (≥500€)</option>
+            <option value="admin">Admin (legacy)</option>
           </select>
           <select
             value={statusFilter}
@@ -228,7 +239,10 @@ export default function ApprovalsPage() {
                   {r.amount != null ? fmt.money(r.amount, r.currency) : '—'}
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${level.bg} ${level.text}`}>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${level.bg} ${level.text}`}
+                    title={r.approval_reason || level.label}
+                  >
                     {level.label}
                   </span>
                 </td>

@@ -61,6 +61,7 @@ class ReceiptOut(BaseModel):
     approved_by: Optional[UUID] = None
     approved_at: Optional[datetime] = None
     approver_name: Optional[str] = None
+    approval_reason: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

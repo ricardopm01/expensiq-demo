@@ -53,6 +53,30 @@ async def get_current_user(
     return employee
 
 
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[Employee]:
+    """Like get_current_user but returns None instead of raising 401.
+
+    Why: DEV_MODE and legacy callers (X-User-Role header) operate without JWT.
+    Audit trail (approved_by) should still be recorded when a token IS present.
+    """
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials)
+    except HTTPException:
+        return None
+    employee_id = payload.get("sub")
+    if not employee_id:
+        return None
+    return db.query(Employee).filter(
+        Employee.id == employee_id,
+        Employee.is_active == True,
+    ).first()
+
+
 async def require_admin(current_user: Employee = Depends(get_current_user)) -> Employee:
     if current_user.role not in ("admin", "viewer"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso restringido a administradores")

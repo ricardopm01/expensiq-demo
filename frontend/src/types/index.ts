@@ -32,10 +32,14 @@ export interface Receipt {
   approved_by: string | null;
   approved_at: string | null;
   approver_name: string | null;
+  approval_reason: string | null;
 }
 
 export interface ApprovalSummary {
   pending_auto: number;
+  pending_manager: number;
+  pending_director: number;
+  // Legacy bucket: manager + director + any pre-Sprint-1 "admin" rows
   pending_admin: number;
   approved_today: number;
 }
@@ -161,6 +165,7 @@ export const CATEGORY_COLOR: Record<string, string> = {
 export const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   pending:    { label: 'Pendiente',  bg: 'bg-slate-100',  text: 'text-slate-600',   dot: 'bg-slate-400'   },
   processing: { label: 'Procesando', bg: 'bg-blue-50',    text: 'text-blue-600',    dot: 'bg-blue-400'    },
+  approved:   { label: 'Aprobado',   bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   matched:    { label: 'Conciliado', bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
   review:     { label: 'Revisar',    bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500'   },
   flagged:    { label: 'Marcado',    bg: 'bg-red-50',     text: 'text-red-600',     dot: 'bg-red-500'     },
@@ -186,11 +191,11 @@ export const SEVERITY_CONFIG: Record<string, { label: string; bg: string; text: 
 };
 
 export const APPROVAL_LEVEL_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
-  auto:  { label: 'Auto (<100€)',   bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  admin: { label: 'Admin (≥100€)',  bg: 'bg-indigo-50',  text: 'text-indigo-700'  },
-  // Legacy compat for existing DB rows
-  manager:  { label: 'Admin (≥100€)', bg: 'bg-indigo-50', text: 'text-indigo-700' },
-  director: { label: 'Admin (≥100€)', bg: 'bg-indigo-50', text: 'text-indigo-700' },
+  auto:     { label: 'Auto (<100€)',        bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  manager:  { label: 'Manager (100-500€)',  bg: 'bg-indigo-50',  text: 'text-indigo-700'  },
+  director: { label: 'Director (≥500€)',    bg: 'bg-amber-50',   text: 'text-amber-700'   },
+  // Legacy pre-Sprint-1 rows
+  admin:    { label: 'Admin (legacy)',      bg: 'bg-slate-100',  text: 'text-slate-600'   },
 };
 
 export const ROLE_LABELS: Record<string, string> = {

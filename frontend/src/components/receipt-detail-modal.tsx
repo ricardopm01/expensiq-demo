@@ -300,15 +300,23 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
                   {(() => {
                     const lc = APPROVAL_LEVEL_CONFIG[receipt.approval_level] || APPROVAL_LEVEL_CONFIG.auto;
                     return (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lc.bg} ${lc.text}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lc.bg} ${lc.text}`}
+                        title={receipt.approval_reason || lc.label}
+                      >
                         {lc.label}
                       </span>
                     );
                   })()}
                 </div>
+                {receipt.approval_reason && isPending && (
+                  <p className="text-xs text-slate-500">{receipt.approval_reason}</p>
+                )}
                 {receipt.approved_at && (
                   <p className="text-xs text-emerald-600">
-                    Aprobado {receipt.approver_name ? `por ${receipt.approver_name}` : ''} el {fmt.date(receipt.approved_at)}
+                    {receipt.approver_name
+                      ? `Aprobado por ${receipt.approver_name} el ${fmt.date(receipt.approved_at)}`
+                      : `Aprobado automaticamente el ${fmt.date(receipt.approved_at)}`}
                   </p>
                 )}
                 {isPending && !roleCanApprove && (

@@ -346,10 +346,11 @@ function ReceiptsPage() {
       <Card>
         {/* Status Tabs */}
         <div className="flex items-center border-b border-slate-100 px-5 gap-1 overflow-x-auto">
-          {(['all', 'pending', 'matched', 'review', 'flagged'] as const).map((id) => {
+          {(['all', 'pending', 'approved', 'matched', 'review', 'flagged'] as const).map((id) => {
             const labels: Record<string, string> = {
               all: 'Todos',
               pending: 'Pendiente',
+              approved: 'Aprobado',
               matched: 'Conciliado',
               review: 'Revisar',
               flagged: 'Marcado',
