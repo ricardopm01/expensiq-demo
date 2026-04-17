@@ -14,6 +14,7 @@ import {
   LogOut,
   X,
   Calendar,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { signOut } from 'next-auth/react';
@@ -28,6 +29,7 @@ const ADMIN_NAV = [
   { href: '/approvals', label: 'Aprobaciones', icon: CheckSquare },
   { href: '/employees', label: 'Empleados', icon: Users },
   { href: '/periods', label: 'Quincenas', icon: Calendar },
+  { href: '/settings', label: 'Ajustes', icon: SettingsIcon },
 ];
 
 const EMPLOYEE_NAV = [

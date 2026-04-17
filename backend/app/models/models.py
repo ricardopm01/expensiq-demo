@@ -183,3 +183,20 @@ class EmployeePeriodStatus(Base):
 
     employee = relationship("Employee", back_populates="period_statuses", foreign_keys=[employee_id])
     period = relationship("Period", back_populates="employee_statuses")
+
+
+class Setting(Base):
+    """Key-value application setting (editable from admin UI).
+
+    Why a dedicated table instead of JSON file or env vars: settings must
+    be editable at runtime by the admin without a redeploy, and we need
+    audit trail (updated_by) for sensitive values like approval thresholds.
+    """
+    __tablename__ = "settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=False)
+    value_type = Column(String(20), nullable=False, default="string")  # string | number | bool
+    description = Column(Text)
+    updated_at = Column(DateTime(timezone=True))
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
