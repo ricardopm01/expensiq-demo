@@ -155,7 +155,7 @@ function FlagModal({ employeeName, onConfirm, onCancel, loading }: {
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function PeriodsPage() {
-  const { role } = useRole();
+  const { role, backendToken } = useRole();
   const toast = useToast();
 
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
@@ -241,7 +241,10 @@ export default function PeriodsPage() {
     }
   }, [buildEmployeeStatuses, toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!backendToken) return;   // espera a que el token esté disponible
+    load();
+  }, [load, backendToken]);
 
   // ── Actions ──────────────────────────────────────────────────────
 

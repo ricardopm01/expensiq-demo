@@ -13,7 +13,6 @@ import {
   User,
   LogOut,
   X,
-  Calendar,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { signOut } from 'next-auth/react';
@@ -27,7 +26,6 @@ const ADMIN_NAV = [
   { href: '/alerts', label: 'Alertas', icon: Bell },
   { href: '/approvals', label: 'Aprobaciones', icon: CheckSquare },
   { href: '/employees', label: 'Empleados', icon: Users },
-  { href: '/periods', label: 'Quincenas', icon: Calendar },
 ];
 
 const EMPLOYEE_NAV = [
