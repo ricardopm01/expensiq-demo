@@ -11,6 +11,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTT
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user_optional
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.models import BankTransaction, Employee, Match, Receipt
@@ -41,7 +42,10 @@ def list_receipts(
     db: Session = Depends(get_db),
 ):
     from sqlalchemy.orm import joinedload
-    query = db.query(Receipt).options(joinedload(Receipt.employee))
+    query = db.query(Receipt).options(
+        joinedload(Receipt.employee),
+        joinedload(Receipt.approver),
+    )
     if status:
         query = query.filter(Receipt.status == status)
     if employee_id:
@@ -177,7 +181,13 @@ async def upload_receipt(
 
 @router.get("/{receipt_id}", response_model=ReceiptOut)
 def get_receipt(receipt_id: str, db: Session = Depends(get_db)):
-    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    from sqlalchemy.orm import joinedload
+    receipt = (
+        db.query(Receipt)
+        .options(joinedload(Receipt.employee), joinedload(Receipt.approver))
+        .filter(Receipt.id == receipt_id)
+        .first()
+    )
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
     return receipt
@@ -261,25 +271,56 @@ def update_receipt(receipt_id: str, data: ReceiptUpdate, db: Session = Depends(g
     return receipt
 
 
+# Approval thresholds in EUR.
+# Defaults; futura fase migrará esto a tabla `settings` editable desde /settings.
+APPROVAL_THRESHOLD_AUTO = 100.0     # < 100€  → auto-aprobado
+APPROVAL_THRESHOLD_MANAGER = 500.0  # 100-500€ → manager
+# >= 500€ → director
+
+
 def _calculate_approval_level(amount: float | None) -> str:
-    """Determine approval level based on amount."""
-    if amount is None or amount < 100:
+    """Determine approval level based on amount (3 tiers)."""
+    if amount is None or amount < APPROVAL_THRESHOLD_AUTO:
         return "auto"
-    return "admin"
+    if amount < APPROVAL_THRESHOLD_MANAGER:
+        return "manager"
+    return "director"
+
+
+def _approval_reason(amount: float | None, level: str) -> str | None:
+    """Human-readable reason why this receipt needs approval (null if auto)."""
+    if level == "auto" or amount is None:
+        return None
+    if level == "manager":
+        return f"Importe {amount:.2f}€ entre {APPROVAL_THRESHOLD_AUTO:.0f}€ y {APPROVAL_THRESHOLD_MANAGER:.0f}€ — requiere manager"
+    return f"Importe {amount:.2f}€ ≥ {APPROVAL_THRESHOLD_MANAGER:.0f}€ — requiere director"
+
+
+# Role capability matrix. An `admin` role can approve any level.
+# Future: `manager` role approves manager; `director` role approves manager/director.
+# For MVP with only employee/admin/viewer roles in DB, admin approves all non-auto.
+_ROLE_CAN_APPROVE = {
+    "admin": {"auto", "manager", "director"},
+    "manager": {"auto", "manager"},
+    "director": {"auto", "manager", "director"},
+    # employee and viewer cannot approve anything above auto (and auto doesn't need approval)
+}
 
 
 def _can_approve(role: str, level: str) -> bool:
     """Check if a role can approve a given level."""
     if level == "auto":
-        return True
-    # admin role can approve everything (including legacy manager/director levels)
-    return role == "admin"
+        return True  # anyone could "re-confirm" an auto level but it shouldn't hit approve endpoint
+    return level in _ROLE_CAN_APPROVE.get(role, set())
 
 
 @router.post("/{receipt_id}/approve", response_model=ApproveRejectResult)
 def approve_receipt(
     receipt_id: str,
     db: Session = Depends(get_db),
+    # Auth: prefer JWT via get_current_user for audit trail; keep X-User-Role
+    # as a fallback so the DEV_MODE and legacy callers keep working.
+    current_user: Optional[Employee] = Depends(get_current_user_optional),
     x_user_role: str = Header(default="admin", alias="X-User-Role"),
 ):
     receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
@@ -289,15 +330,21 @@ def approve_receipt(
         raise HTTPException(status_code=409, detail=f"Cannot approve receipt with status '{receipt.status}'")
 
     level = receipt.approval_level or _calculate_approval_level(float(receipt.amount) if receipt.amount else None)
-    if not _can_approve(x_user_role, level):
+
+    # Role to use for permission check: prefer authenticated user's role, fallback to header
+    effective_role = current_user.role if current_user else x_user_role
+    if not _can_approve(effective_role, level):
         raise HTTPException(
             status_code=403,
-            detail=f"Role '{x_user_role}' cannot approve level '{level}'"
+            detail=f"Role '{effective_role}' cannot approve level '{level}'"
         )
 
     has_match = db.query(Match).filter(Match.receipt_id == receipt_id).first()
-    receipt.status = "matched" if has_match else "review"
+    receipt.status = "matched" if has_match else "approved"
     receipt.approved_at = datetime.utcnow()
+    # Audit trail: record who approved manually. Auto-approvals leave approved_by=None.
+    if current_user:
+        receipt.approved_by = current_user.id
     if not receipt.approval_level:
         receipt.approval_level = level
     db.commit()
@@ -500,6 +547,7 @@ async def import_expense_excel(
         cat_raw = str(category_val or "").strip().lower()
         category = CATEGORY_MAP_ES.get(cat_raw, "other")
 
+        level = _calculate_approval_level(amount)
         receipt = Receipt(
             id=uuid.uuid4(),
             employee_id=employee_id,
@@ -510,10 +558,11 @@ async def import_expense_excel(
             category=category,
             payment_method=payment_method,
             notes=str(notes_val or "").strip() or None,
-            status="pending",
+            status="approved" if level == "auto" else "pending",
+            approved_at=datetime.utcnow() if level == "auto" else None,
             ocr_provider="excel_import",
             ocr_confidence=1.0,
-            approval_level=_calculate_approval_level(amount),
+            approval_level=level,
         )
         db.add(receipt)
         created += 1
@@ -558,12 +607,19 @@ def _process_receipt_ocr(receipt_id: str, file_content: bytes, filename: str):
             # Categorize
             categorizer = ExpenseCategorizer()
             receipt.category = categorizer.categorize(receipt.merchant)
-            receipt.status = "pending"
 
-            # Calculate approval level
+            # Calculate approval level and auto-approve small amounts.
+            # Bug fix Sprint 1 (C1): previously all receipts landed pending even when
+            # approval_level was "auto". Now auto-tier is marked approved directly;
+            # manager/director tiers remain pending and appear in the approvals queue.
             receipt.approval_level = _calculate_approval_level(
                 float(receipt.amount) if receipt.amount else None
             )
+            if receipt.approval_level == "auto":
+                receipt.status = "approved"
+                receipt.approved_at = datetime.utcnow()
+            else:
+                receipt.status = "pending"
 
             logger.info("OCR processed receipt %s: %s %s %s",
                         receipt_id, receipt.merchant, receipt.amount, receipt.currency)

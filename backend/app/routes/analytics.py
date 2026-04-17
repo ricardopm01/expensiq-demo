@@ -101,17 +101,16 @@ def get_top_spenders(db: Session = Depends(get_db)):
 
 @router.get("/approval-summary")
 def get_approval_summary(db: Session = Depends(get_db)):
-    """Counts of pending receipts by approval level."""
+    """Counts of pending receipts by approval level (3 tiers + legacy bucket)."""
     pending_statuses = ["pending", "review", "flagged"]
     base = db.query(Receipt).filter(Receipt.status.in_(pending_statuses))
 
     pending_auto = base.filter(Receipt.approval_level == "auto").count()
-    # Count admin + legacy manager/director as one bucket
-    pending_admin = base.filter(
-        Receipt.approval_level.in_(["admin", "manager", "director"])
-    ).count()
+    pending_manager = base.filter(Receipt.approval_level == "manager").count()
+    pending_director = base.filter(Receipt.approval_level == "director").count()
+    # Legacy "admin" rows (pre-Sprint1 data) bucketed with manager for admin dashboards.
+    pending_legacy_admin = base.filter(Receipt.approval_level == "admin").count()
 
-    # Approved today
     today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     approved_today = db.query(Receipt).filter(
         Receipt.approved_at >= today_start
@@ -119,7 +118,10 @@ def get_approval_summary(db: Session = Depends(get_db)):
 
     return {
         "pending_auto": pending_auto,
-        "pending_admin": pending_admin,
+        "pending_manager": pending_manager,
+        "pending_director": pending_director,
+        # Keep pending_admin for backwards compat: manager + director + legacy admin
+        "pending_admin": pending_manager + pending_director + pending_legacy_admin,
         "approved_today": approved_today,
     }
 

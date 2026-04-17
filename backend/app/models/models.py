@@ -78,6 +78,28 @@ class Receipt(Base):
     def approver_name(self):
         return self.approver.name if self.approver else None
 
+    @property
+    def approval_reason(self):
+        """Human-readable reason — only populated for non-auto levels.
+
+        Kept here (not in routes) so list/detail endpoints serialize it via
+        from_attributes without extra plumbing. Thresholds are the same as
+        routes/receipts.py; duplication is deliberate to avoid import cycles.
+        """
+        level = self.approval_level
+        if level in (None, "auto"):
+            return None
+        amount = float(self.amount) if self.amount is not None else None
+        if amount is None:
+            return None
+        if level == "manager":
+            return f"Importe {amount:.2f}€ entre 100€ y 500€ — requiere manager"
+        if level == "director":
+            return f"Importe {amount:.2f}€ ≥ 500€ — requiere director"
+        if level == "admin":
+            return f"Importe {amount:.2f}€ requiere aprobación admin (legacy)"
+        return None
+
 
 class BankTransaction(Base):
     __tablename__ = "bank_transactions"
