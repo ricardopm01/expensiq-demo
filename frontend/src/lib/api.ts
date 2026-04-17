@@ -28,7 +28,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = { ...authHeaders(), ...(options?.headers || {}) };
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
-    throw new Error(`API error: ${res.status} ${res.statusText}`);
+    let detail: string | null = null;
+    try {
+      const body = await res.json();
+      if (typeof body?.detail === 'string') detail = body.detail;
+    } catch {
+      // response not JSON — ignore
+    }
+    throw new Error(detail ?? `API error: ${res.status} ${res.statusText}`);
   }
   return res.json();
 }
@@ -46,6 +53,13 @@ export const api = {
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, {
       method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),

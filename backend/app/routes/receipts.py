@@ -271,29 +271,63 @@ def update_receipt(receipt_id: str, data: ReceiptUpdate, db: Session = Depends(g
     return receipt
 
 
-# Approval thresholds in EUR.
-# Defaults; futura fase migrará esto a tabla `settings` editable desde /settings.
-APPROVAL_THRESHOLD_AUTO = 100.0     # < 100€  → auto-aprobado
-APPROVAL_THRESHOLD_MANAGER = 500.0  # 100-500€ → manager
-# >= 500€ → director
+# Fallback approval thresholds in EUR — used when the settings service has no
+# DB session available. Sprint 1 fase B: los valores reales viven en tabla
+# `settings` (keys approval.threshold_auto / approval.threshold_manager /
+# approval.auto_enabled) y son editables desde /settings.
+APPROVAL_THRESHOLD_AUTO = 100.0
+APPROVAL_THRESHOLD_MANAGER = 500.0
 
 
-def _calculate_approval_level(amount: float | None) -> str:
-    """Determine approval level based on amount (3 tiers)."""
-    if amount is None or amount < APPROVAL_THRESHOLD_AUTO:
+def _calculate_approval_level(
+    amount: float | None,
+    db: Optional[Session] = None,
+) -> str:
+    """Determine approval level based on amount (3 tiers).
+
+    If `db` is provided, thresholds are loaded from the settings table (cached
+    briefly in-process). If `db` is None, falls back to module-level defaults
+    so callers without a session (tests, scripts) keep working.
+    """
+    from app.services.settings_service import get_approval_thresholds
+
+    threshold_auto = APPROVAL_THRESHOLD_AUTO
+    threshold_manager = APPROVAL_THRESHOLD_MANAGER
+    auto_enabled = True
+    if db is not None:
+        thresholds = get_approval_thresholds(db)
+        threshold_auto = float(thresholds["threshold_auto"] or APPROVAL_THRESHOLD_AUTO)
+        threshold_manager = float(thresholds["threshold_manager"] or APPROVAL_THRESHOLD_MANAGER)
+        auto_enabled = bool(thresholds["auto_enabled"])
+
+    # If auto-approval disabled globally, bump everything out of "auto" tier
+    # so no receipt self-approves regardless of amount.
+    if not auto_enabled:
+        if amount is None or amount < threshold_manager:
+            return "manager"
+        return "director"
+
+    if amount is None or amount < threshold_auto:
         return "auto"
-    if amount < APPROVAL_THRESHOLD_MANAGER:
+    if amount < threshold_manager:
         return "manager"
     return "director"
 
 
-def _approval_reason(amount: float | None, level: str) -> str | None:
+def _approval_reason(amount: float | None, level: str, db: Optional[Session] = None) -> str | None:
     """Human-readable reason why this receipt needs approval (null if auto)."""
     if level == "auto" or amount is None:
         return None
+    threshold_auto = APPROVAL_THRESHOLD_AUTO
+    threshold_manager = APPROVAL_THRESHOLD_MANAGER
+    if db is not None:
+        from app.services.settings_service import get_approval_thresholds
+        t = get_approval_thresholds(db)
+        threshold_auto = float(t["threshold_auto"] or APPROVAL_THRESHOLD_AUTO)
+        threshold_manager = float(t["threshold_manager"] or APPROVAL_THRESHOLD_MANAGER)
     if level == "manager":
-        return f"Importe {amount:.2f}€ entre {APPROVAL_THRESHOLD_AUTO:.0f}€ y {APPROVAL_THRESHOLD_MANAGER:.0f}€ — requiere manager"
-    return f"Importe {amount:.2f}€ ≥ {APPROVAL_THRESHOLD_MANAGER:.0f}€ — requiere director"
+        return f"Importe {amount:.2f}€ entre {threshold_auto:.0f}€ y {threshold_manager:.0f}€ — requiere manager"
+    return f"Importe {amount:.2f}€ ≥ {threshold_manager:.0f}€ — requiere director"
 
 
 # Role capability matrix. An `admin` role can approve any level.
@@ -329,7 +363,10 @@ def approve_receipt(
     if receipt.status not in ("pending", "review", "flagged"):
         raise HTTPException(status_code=409, detail=f"Cannot approve receipt with status '{receipt.status}'")
 
-    level = receipt.approval_level or _calculate_approval_level(float(receipt.amount) if receipt.amount else None)
+    level = receipt.approval_level or _calculate_approval_level(
+        float(receipt.amount) if receipt.amount else None,
+        db=db,
+    )
 
     # Role to use for permission check: prefer authenticated user's role, fallback to header
     effective_role = current_user.role if current_user else x_user_role
@@ -547,7 +584,7 @@ async def import_expense_excel(
         cat_raw = str(category_val or "").strip().lower()
         category = CATEGORY_MAP_ES.get(cat_raw, "other")
 
-        level = _calculate_approval_level(amount)
+        level = _calculate_approval_level(amount, db=db)
         receipt = Receipt(
             id=uuid.uuid4(),
             employee_id=employee_id,
@@ -613,7 +650,8 @@ def _process_receipt_ocr(receipt_id: str, file_content: bytes, filename: str):
             # approval_level was "auto". Now auto-tier is marked approved directly;
             # manager/director tiers remain pending and appear in the approvals queue.
             receipt.approval_level = _calculate_approval_level(
-                float(receipt.amount) if receipt.amount else None
+                float(receipt.amount) if receipt.amount else None,
+                db=db,
             )
             if receipt.approval_level == "auto":
                 receipt.status = "approved"
