@@ -64,6 +64,19 @@ export interface Transaction {
   amount: number;
   currency: string;
   account_id: string | null;
+  match_status: 'matched' | 'low_confidence' | 'unmatched';
+  match_confidence: number | null;
+  matched_receipt_id: string | null;
+}
+
+export interface ActionToday {
+  receipts_pending_approval: number;
+  transactions_unmatched: number;
+  period_pending_employees: number;
+  period_pending_label: string;
+  alerts_urgent: number;
+  period_id: string | null;
+  period_status: 'open' | 'closed' | null;
 }
 
 export interface Alert {

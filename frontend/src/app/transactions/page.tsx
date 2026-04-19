@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   CreditCard,
   Wallet,
@@ -9,6 +10,8 @@ import {
   Receipt,
   CheckCircle,
   AlertTriangle,
+  Link2Off,
+  HelpCircle,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -28,13 +31,62 @@ interface SyncResult {
   skipped: number;
 }
 
+type MatchFilter = 'all' | 'matched' | 'unmatched' | 'low_confidence';
+
+function MatchBadge({ txn }: { txn: Transaction }) {
+  if (txn.match_status === 'matched') {
+    const pct = txn.match_confidence != null ? Math.round(txn.match_confidence * 100) : null;
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700"
+        title={pct != null ? `Conciliada con ${pct}% de confianza` : 'Conciliada'}
+      >
+        <CheckCircle className="w-3 h-3" />
+        Conciliada
+        {pct != null && <span className="text-emerald-500 font-mono">{pct}%</span>}
+      </span>
+    );
+  }
+  if (txn.match_status === 'low_confidence') {
+    const pct = txn.match_confidence != null ? Math.round(txn.match_confidence * 100) : null;
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700"
+        title={pct != null ? `Posible match con ${pct}% de confianza (<60%)` : 'Baja confianza'}
+      >
+        <HelpCircle className="w-3 h-3" />
+        Baja confianza
+        {pct != null && <span className="text-amber-600 font-mono">{pct}%</span>}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600"
+      title="Sin recibo asociado"
+    >
+      <Link2Off className="w-3 h-3" />
+      Sin conciliar
+    </span>
+  );
+}
+
 export default function TransactionsPage() {
   const toast = useToast();
+  const searchParams = useSearchParams();
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [reconciling, setReconciling] = useState(false);
   const [lastResult, setLastResult] = useState<ReconcileResult | null>(null);
+  const [filter, setFilter] = useState<MatchFilter>('all');
+
+  useEffect(() => {
+    const initial = searchParams?.get('filter');
+    if (initial === 'unmatched' || initial === 'matched' || initial === 'low_confidence') {
+      setFilter(initial);
+    }
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,9 +134,31 @@ export default function TransactionsPage() {
     }
   };
 
+  const counts = useMemo(() => {
+    const c = { all: txns.length, matched: 0, unmatched: 0, low_confidence: 0 };
+    for (const t of txns) {
+      if (t.match_status === 'matched') c.matched++;
+      else if (t.match_status === 'low_confidence') c.low_confidence++;
+      else c.unmatched++;
+    }
+    return c;
+  }, [txns]);
+
+  const filteredTxns = useMemo(() => {
+    if (filter === 'all') return txns;
+    return txns.filter((t) => t.match_status === filter);
+  }, [txns, filter]);
+
   const totalAmount = txns.reduce((s, t) => s + (t.amount || 0), 0);
 
   if (loading) return <TablePageSkeleton />;
+
+  const tabs: { id: MatchFilter; label: string; count: number; tone: string }[] = [
+    { id: 'all', label: 'Todas', count: counts.all, tone: 'slate' },
+    { id: 'matched', label: 'Conciliadas', count: counts.matched, tone: 'emerald' },
+    { id: 'unmatched', label: 'Sin conciliar', count: counts.unmatched, tone: 'amber' },
+    { id: 'low_confidence', label: 'Baja confianza', count: counts.low_confidence, tone: 'amber' },
+  ];
 
   return (
     <div className="space-y-5">
@@ -156,22 +230,53 @@ export default function TransactionsPage() {
         )}
       </Card>
 
+      {/* Tabs filtro match_status */}
+      <div className="flex flex-wrap gap-2">
+        {tabs.map((tab) => {
+          const active = filter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id)}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                active
+                  ? 'bg-indigo-500 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`font-mono text-[11px] px-1.5 py-0.5 rounded-full ${
+                  active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Table */}
       <Card>
         <DataTable
-          headers={['Comercio', 'Fecha', 'Importe', 'Cuenta', 'ID Externo']}
+          headers={['Comercio', 'Fecha', 'Importe', 'Estado', 'Cuenta', 'ID Externo']}
           loading={loading}
           empty={
-            txns.length === 0 ? (
+            filteredTxns.length === 0 ? (
               <EmptyState
                 icon={<CreditCard className="w-12 h-12" />}
-                title="Sin transacciones"
-                desc='Importa un extracto bancario o usa "Demo Banco" para datos de prueba.'
+                title={filter === 'all' ? 'Sin transacciones' : 'Sin resultados'}
+                desc={
+                  filter === 'all'
+                    ? 'Importa un extracto bancario o usa "Demo Banco" para datos de prueba.'
+                    : 'No hay transacciones con este filtro. Prueba otra pestaña.'
+                }
               />
             ) : undefined
           }
         >
-          {txns.map((t) => (
+          {filteredTxns.map((t) => (
             <tr key={t.id} className="row-hover border-t border-slate-50">
               <td className="px-4 py-3 text-sm font-semibold text-slate-800">
                 {t.merchant || '—'}
@@ -181,6 +286,9 @@ export default function TransactionsPage() {
               </td>
               <td className="px-4 py-3 text-sm font-bold text-slate-800">
                 {fmt.money(t.amount, t.currency)}
+              </td>
+              <td className="px-4 py-3">
+                <MatchBadge txn={t} />
               </td>
               <td className="px-4 py-3">
                 <span className="text-xs font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">

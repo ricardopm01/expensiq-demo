@@ -81,13 +81,68 @@ MOCK_TRANSACTIONS = _build_mock_txns()
 
 
 @router.get("", response_model=list[TransactionOut])
-def list_transactions(limit: int = 100, db: Session = Depends(get_db)):
-    return (
+def list_transactions(
+    limit: int = 100,
+    match_status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """List bank transactions, enriched with best-match info.
+
+    match_status filter (optional): "matched" | "low_confidence" | "unmatched".
+    """
+    # Best match per transaction = highest confidence
+    txns = (
         db.query(BankTransaction)
         .order_by(BankTransaction.date.desc())
         .limit(limit)
         .all()
     )
+
+    # Batch-fetch best matches to avoid N+1
+    txn_ids = [t.id for t in txns]
+    best_matches: dict = {}
+    if txn_ids:
+        match_rows = (
+            db.query(Match)
+            .filter(Match.transaction_id.in_(txn_ids))
+            .all()
+        )
+        for m in match_rows:
+            key = m.transaction_id
+            existing = best_matches.get(key)
+            if existing is None or (m.confidence or 0) > (existing.confidence or 0):
+                best_matches[key] = m
+
+    def status_for(txn) -> tuple[str, Optional[float], Optional[uuid.UUID]]:
+        m = best_matches.get(txn.id)
+        if not m:
+            return "unmatched", None, None
+        conf = float(m.confidence) if m.confidence is not None else None
+        if conf is not None and conf < 0.6:
+            return "low_confidence", conf, m.receipt_id
+        return "matched", conf, m.receipt_id
+
+    result = []
+    for t in txns:
+        s, conf, rid = status_for(t)
+        if match_status and s != match_status:
+            continue
+        result.append(
+            TransactionOut(
+                id=t.id,
+                employee_id=t.employee_id,
+                external_id=t.external_id,
+                date=t.date,
+                merchant=t.merchant,
+                amount=float(t.amount),
+                currency=t.currency,
+                account_id=t.account_id,
+                match_status=s,
+                match_confidence=conf,
+                matched_receipt_id=rid,
+            )
+        )
+    return result
 
 
 @router.post("/sync-mock", response_model=SyncResult)

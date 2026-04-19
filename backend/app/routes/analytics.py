@@ -8,8 +8,17 @@ from sqlalchemy import extract, func
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models.models import Alert, BankTransaction, Employee, Match, Receipt
+from app.models.models import (
+    Alert,
+    BankTransaction,
+    Employee,
+    EmployeePeriodStatus,
+    Match,
+    Period,
+    Receipt,
+)
 from app.schemas.schemas import (
+    ActionTodayOut,
     CategoryOut,
     DepartmentComparisonOut,
     EmployeeCategoryBreakdownOut,
@@ -124,6 +133,95 @@ def get_approval_summary(db: Session = Depends(get_db)):
         "pending_admin": pending_manager + pending_director + pending_legacy_admin,
         "approved_today": approved_today,
     }
+
+
+@router.get("/action-today", response_model=ActionTodayOut)
+def get_action_today(db: Session = Depends(get_db)):
+    """Consolidated counters for the 'Acción Hoy' dashboard banner.
+
+    - receipts_pending_approval: recibos que requieren manager/director/legacy admin
+    - transactions_unmatched: transacciones bancarias sin ningún match
+    - period_pending_employees: si quincena abierta → empleados activos sin recibos;
+      si cerrada → empleados con review_status='pending'
+    - alerts_urgent: alertas activas con severity in (high, critical)
+    """
+    pending_statuses = ["pending", "review", "flagged"]
+    receipts_pending_approval = (
+        db.query(Receipt)
+        .filter(
+            Receipt.status.in_(pending_statuses),
+            Receipt.approval_level.in_(["manager", "director", "admin"]),
+        )
+        .count()
+    )
+
+    matched_txn_ids = db.query(Match.transaction_id).distinct()
+    transactions_unmatched = (
+        db.query(BankTransaction).filter(~BankTransaction.id.in_(matched_txn_ids)).count()
+    )
+
+    alerts_urgent = (
+        db.query(Alert)
+        .filter(Alert.resolved == False, Alert.severity.in_(["high", "critical"]))
+        .count()
+    )
+
+    # Period-aware employee counter
+    period = (
+        db.query(Period).order_by(Period.start_date.desc()).first()
+    )
+    period_pending_employees = 0
+    period_pending_label = ""
+    period_id = None
+    period_status = None
+
+    if period:
+        period_id = period.id
+        period_status = period.status
+        active_employees = (
+            db.query(Employee)
+            .filter(Employee.role == "employee", Employee.is_active == True)
+            .all()
+        )
+
+        if period.status == "open":
+            period_pending_label = "sin enviar recibos"
+            for emp in active_employees:
+                count = (
+                    db.query(Receipt)
+                    .filter(
+                        Receipt.employee_id == emp.id,
+                        Receipt.date >= period.start_date,
+                        Receipt.date <= period.end_date,
+                    )
+                    .count()
+                )
+                if count == 0:
+                    period_pending_employees += 1
+        else:  # closed
+            period_pending_label = "sin revisar"
+            reviewed_ids = {
+                str(s.employee_id)
+                for s in db.query(EmployeePeriodStatus)
+                .filter(
+                    EmployeePeriodStatus.period_id == period.id,
+                    EmployeePeriodStatus.review_status.in_(["approved", "flagged"]),
+                )
+                .all()
+            }
+            for emp in active_employees:
+                if str(emp.id) not in reviewed_ids:
+                    period_pending_employees += 1
+
+    return ActionTodayOut(
+        receipts_pending_approval=receipts_pending_approval,
+        transactions_unmatched=transactions_unmatched,
+        period_pending_employees=period_pending_employees,
+        period_pending_label=period_pending_label,
+        alerts_urgent=alerts_urgent,
+        period_id=period_id,
+        period_status=period_status,
+    )
 
 
 @router.get("/monthly-trend")
