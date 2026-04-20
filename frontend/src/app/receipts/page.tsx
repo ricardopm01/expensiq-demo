@@ -17,7 +17,7 @@ import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
 import { PeriodBanner } from '@/components/period-banner';
-import type { Receipt, Employee } from '@/types';
+import type { Receipt, Employee, Project } from '@/types';
 import { CATEGORY_LABEL } from '@/types';
 
 const INPUT_CLS =
@@ -38,18 +38,20 @@ function ReceiptsPage() {
   const isEmployee = role === 'employee';
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [empMap, setEmpMap] = useState<Record<string, Employee>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(searchParams.get('status') || 'all');
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [form, setForm] = useState({ employee_id: '', merchant: '', amount: '' });
+  const [form, setForm] = useState({ employee_id: '', merchant: '', amount: '', project_id: '' });
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Advanced filters
   const [filterEmployee, setFilterEmployee] = useState(searchParams.get('employee_id') || '');
   const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
+  const [filterProject, setFilterProject] = useState(searchParams.get('project_id') || '');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
@@ -68,23 +70,27 @@ function ReceiptsPage() {
     if (filter !== 'all') q += '&status=' + filter;
     if (filterEmployee) q += '&employee_id=' + filterEmployee;
     if (filterCategory) q += '&category=' + filterCategory;
+    if (filterProject) q += '&project_id=' + filterProject;
     if (filterDateFrom) q += '&date_from=' + filterDateFrom;
     if (filterDateTo) q += '&date_to=' + filterDateTo;
     if (filterSearch) q += '&search=' + encodeURIComponent(filterSearch);
     return q;
-  }, [filter, filterEmployee, filterCategory, filterDateFrom, filterDateTo, filterSearch]);
+  }, [filter, filterEmployee, filterCategory, filterProject, filterDateFrom, filterDateTo, filterSearch]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [r, e] = await Promise.all([
+      const [r, e, p] = await Promise.all([
         api.get<Receipt[]>(buildQuery()),
         api.get<Employee[]>('/employees'),
+        api.get<Project[]>('/projects?active_only=true'),
       ]);
       const recs = Array.isArray(r) ? r : [];
       const emps = Array.isArray(e) ? e : [];
+      const projs = Array.isArray(p) ? p : [];
       setReceipts(recs);
       setEmployees(emps);
+      setProjects(projs);
       const map: Record<string, Employee> = {};
       emps.forEach((emp) => {
         map[String(emp.id)] = emp;
@@ -103,7 +109,7 @@ function ReceiptsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, filterEmployee, filterCategory, filterDateFrom, filterDateTo, filterSearch]);
+  }, [filter, filterEmployee, filterCategory, filterProject, filterDateFrom, filterDateTo, filterSearch]);
 
   const handleUpload = async (file: File) => {
     if (!form.employee_id) {
@@ -117,6 +123,7 @@ function ReceiptsPage() {
       fd.append('employee_id', form.employee_id);
       if (form.merchant) fd.append('merchant', form.merchant);
       if (form.amount) fd.append('amount', form.amount);
+      if (form.project_id) fd.append('project_id', form.project_id);
       await api.upload('/receipts/upload', fd);
       toast.success('Recibo subido — OCR procesando en segundo plano');
       setForm((f) => ({ ...f, merchant: '', amount: '' }));
@@ -132,13 +139,14 @@ function ReceiptsPage() {
   const clearFilters = () => {
     setFilterEmployee('');
     setFilterCategory('');
+    setFilterProject('');
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterSearch('');
   };
 
   const hasActiveFilters =
-    filterEmployee || filterCategory || filterDateFrom || filterDateTo || filterSearch;
+    filterEmployee || filterCategory || filterProject || filterDateFrom || filterDateTo || filterSearch;
   const totalAmount = receipts.reduce((s, r) => s + (r.amount || 0), 0);
 
   return (
@@ -196,6 +204,25 @@ function ReceiptsPage() {
               className={INPUT_CLS}
             />
           </div>
+          {projects.length > 0 && (
+            <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                Obra (opcional)
+              </label>
+              <select
+                value={form.project_id}
+                onChange={(e) => setForm((f) => ({ ...f, project_id: e.target.value }))}
+                className={INPUT_CLS}
+              >
+                <option value="">Sin obra</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} — {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div
           className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
@@ -277,7 +304,7 @@ function ReceiptsPage() {
           )}
         </div>
         {showFilters && (
-          <div className={`grid grid-cols-2 ${isEmployee ? 'md:grid-cols-4' : 'md:grid-cols-5'} gap-3`}>
+          <div className={`grid grid-cols-2 ${isEmployee ? 'md:grid-cols-4' : 'md:grid-cols-6'} gap-3`}>
             {!isEmployee && (
             <div>
               <label className="block text-xs text-slate-400 mb-1">Empleado</label>
@@ -290,6 +317,23 @@ function ReceiptsPage() {
                 {employees.map((e) => (
                   <option key={e.id} value={e.id}>
                     {e.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            )}
+            {projects.length > 0 && (
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Obra</label>
+              <select
+                value={filterProject}
+                onChange={(e) => setFilterProject(e.target.value)}
+                className={INPUT_CLS}
+              >
+                <option value="">Todas</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code}
                   </option>
                 ))}
               </select>
@@ -392,6 +436,7 @@ function ReceiptsPage() {
           headers={[
             'Comercio',
             ...(isEmployee ? [] : ['Empleado']),
+            'Obra',
             'Fecha',
             'Importe',
             'Categoria',
@@ -443,6 +488,15 @@ function ReceiptsPage() {
                   </div>
                 </td>
                 )}
+                <td className="px-4 py-3">
+                  {r.project_code ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-mono font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      {r.project_code}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-300">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                   {fmt.date(r.date || r.upload_timestamp)}
                 </td>

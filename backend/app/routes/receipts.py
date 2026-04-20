@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_current_user_optional
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.models import BankTransaction, Employee, Match, Receipt
+from app.models.models import BankTransaction, Employee, Match, Project, Receipt
 from app.schemas.schemas import ApproveRejectResult, ReceiptMatchOut, ReceiptOut, ReceiptUpdate, ReconcileSingleResult
 
 logger = logging.getLogger("expensiq.receipts")
@@ -32,6 +32,7 @@ def list_receipts(
     status: Optional[str] = None,
     employee_id: Optional[str] = None,
     category: Optional[str] = None,
+    project_id: Optional[str] = None,
     date_from: Optional[DateType] = None,
     date_to: Optional[DateType] = None,
     search: Optional[str] = None,
@@ -45,6 +46,7 @@ def list_receipts(
     query = db.query(Receipt).options(
         joinedload(Receipt.employee),
         joinedload(Receipt.approver),
+        joinedload(Receipt.project),
     )
     if status:
         query = query.filter(Receipt.status == status)
@@ -52,6 +54,8 @@ def list_receipts(
         query = query.filter(Receipt.employee_id == employee_id)
     if category:
         query = query.filter(Receipt.category == category)
+    if project_id:
+        query = query.filter(Receipt.project_id == project_id)
     if date_from:
         query = query.filter(Receipt.date >= date_from)
     if date_to:
@@ -87,7 +91,7 @@ def export_receipts_csv(
     db: Session = Depends(get_db),
 ):
     from sqlalchemy.orm import joinedload
-    query = db.query(Receipt).options(joinedload(Receipt.employee))
+    query = db.query(Receipt).options(joinedload(Receipt.employee), joinedload(Receipt.project))
     if status:
         query = query.filter(Receipt.status == status)
     if employee_id:
@@ -104,15 +108,23 @@ def export_receipts_csv(
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["id", "empleado", "merchant", "fecha", "importe", "moneda", "tax", "categoria", "estado", "confianza_ocr", "fecha_subida", "notas"])
+    writer.writerow([
+        "id", "empleado", "obra", "merchant", "fecha", "importe", "moneda",
+        "base_imponible", "tipo_iva", "cuota_iva", "tax_legacy",
+        "categoria", "estado", "confianza_ocr", "fecha_subida", "notas",
+    ])
     for r in receipts:
         writer.writerow([
             str(r.id),
             r.employee.name if r.employee else "",
+            r.project.code if r.project else "",
             r.merchant or "",
             str(r.date) if r.date else "",
             r.amount or "",
             r.currency,
+            r.tax_base or "",
+            r.tax_rate or "",
+            r.tax_amount or "",
             r.tax or "",
             r.category,
             r.status,
@@ -134,6 +146,7 @@ async def upload_receipt(
     background_tasks: BackgroundTasks,
     employee_id: str = Form(...),
     file: UploadFile = File(...),
+    project_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     # Validate employee exists
@@ -162,12 +175,21 @@ async def upload_receipt(
     except Exception as e:
         logger.warning("Storage upload failed, continuing without image_url: %s", e)
 
+    # Validate project if provided
+    resolved_project_id = None
+    if project_id:
+        project = db.query(Project).filter(Project.id == project_id, Project.active == True).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Obra no encontrada o inactiva")
+        resolved_project_id = project.id
+
     # Create receipt record
     receipt = Receipt(
         id=receipt_id,
         employee_id=employee_id,
         image_url=image_url,
         status="processing",
+        project_id=resolved_project_id,
     )
     db.add(receipt)
     db.commit()
@@ -184,7 +206,11 @@ def get_receipt(receipt_id: str, db: Session = Depends(get_db)):
     from sqlalchemy.orm import joinedload
     receipt = (
         db.query(Receipt)
-        .options(joinedload(Receipt.employee), joinedload(Receipt.approver))
+        .options(
+            joinedload(Receipt.employee),
+            joinedload(Receipt.approver),
+            joinedload(Receipt.project),
+        )
         .filter(Receipt.id == receipt_id)
         .first()
     )
@@ -261,10 +287,27 @@ def reconcile_single(receipt_id: str, db: Session = Depends(get_db)):
 
 @router.patch("/{receipt_id}", response_model=ReceiptOut)
 def update_receipt(receipt_id: str, data: ReceiptUpdate, db: Session = Depends(get_db)):
-    receipt = db.query(Receipt).filter(Receipt.id == receipt_id).first()
+    from sqlalchemy.orm import joinedload
+    receipt = (
+        db.query(Receipt)
+        .options(joinedload(Receipt.employee), joinedload(Receipt.approver), joinedload(Receipt.project))
+        .filter(Receipt.id == receipt_id)
+        .first()
+    )
     if not receipt:
         raise HTTPException(status_code=404, detail="Receipt not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
+    updates = data.model_dump(exclude_unset=True)
+    # project_id needs special handling: string → UUID or None
+    if "project_id" in updates:
+        pid = updates.pop("project_id")
+        if pid is None or pid == "":
+            receipt.project_id = None
+        else:
+            project = db.query(Project).filter(Project.id == pid, Project.active == True).first()
+            if not project:
+                raise HTTPException(status_code=404, detail="Obra no encontrada o inactiva")
+            receipt.project_id = project.id
+    for field, value in updates.items():
         setattr(receipt, field, value)
     db.commit()
     db.refresh(receipt)

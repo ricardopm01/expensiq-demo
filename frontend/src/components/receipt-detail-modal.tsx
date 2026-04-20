@@ -21,13 +21,14 @@ import {
   CreditCard,
   Banknote,
   ArrowRightLeft,
+  FolderKanban,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { StatusBadge, Btn, Spinner } from '@/components/ui';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { Receipt, ReceiptMatch, Employee, ApproveRejectResult } from '@/types';
+import type { Receipt, ReceiptMatch, Employee, ApproveRejectResult, Project } from '@/types';
 import { CATEGORY_LABEL, PAYMENT_METHOD_LABEL, APPROVAL_LEVEL_CONFIG } from '@/types';
 
 interface Props {
@@ -50,6 +51,7 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
   const toast = useToast();
   const { role } = useRole();
   const [matches, setMatches] = useState<ReceiptMatch[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,13 +61,22 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
     date: receipt.date || '',
     category: receipt.category,
     tax: receipt.tax?.toString() || '',
+    tax_base: receipt.tax_base?.toString() || '',
+    tax_rate: receipt.tax_rate?.toString() || '',
+    tax_amount: receipt.tax_amount?.toString() || '',
     notes: receipt.notes || '',
+    project_id: receipt.project_id || '',
   });
 
   useEffect(() => {
-    api
-      .get<ReceiptMatch[]>(`/receipts/${receipt.id}/matches`)
-      .then((m) => setMatches(Array.isArray(m) ? m : []))
+    Promise.all([
+      api.get<ReceiptMatch[]>(`/receipts/${receipt.id}/matches`),
+      api.get<Project[]>('/projects?active_only=true'),
+    ])
+      .then(([m, p]) => {
+        setMatches(Array.isArray(m) ? m : []);
+        setProjects(Array.isArray(p) ? p : []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [receipt.id]);
@@ -85,7 +96,11 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
         date: editData.date || null,
         category: editData.category,
         tax: editData.tax ? parseFloat(editData.tax) : null,
+        tax_base: editData.tax_base ? parseFloat(editData.tax_base) : null,
+        tax_rate: editData.tax_rate ? parseFloat(editData.tax_rate) : null,
+        tax_amount: editData.tax_amount ? parseFloat(editData.tax_amount) : null,
         notes: editData.notes || null,
+        project_id: editData.project_id || null,
       });
       toast.success('Recibo actualizado');
       setEditing(false);
@@ -290,7 +305,100 @@ export function ReceiptDetailModal({ receipt, empMap, onClose, onUpdate }: Props
                   />
                 </div>
               )}
+
+              {/* Obra field */}
+              <div className="flex items-center gap-3 px-3 py-2 bg-slate-50 rounded-xl">
+                <FolderKanban className="w-[18px] h-[18px] text-slate-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-slate-400">Obra</span>
+                  {editing ? (
+                    <select
+                      value={editData.project_id}
+                      onChange={(e) => setEditData((d) => ({ ...d, project_id: e.target.value }))}
+                      className={INPUT_CLS + ' mt-0.5'}
+                    >
+                      <option value="">Sin obra</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.code} — {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-700">
+                      {receipt.project_code
+                        ? <span className="font-mono text-indigo-700">{receipt.project_code}</span>
+                        : <span className="text-slate-400">—</span>}
+                      {receipt.project_name && (
+                        <span className="ml-1.5 text-slate-500 font-normal">{receipt.project_name}</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
+
+            {/* IVA breakdown */}
+            {(receipt.tax_base != null || receipt.tax_rate != null || receipt.tax_amount != null || editing) && (
+              <div className="mt-4">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                  Desglose IVA
+                </h3>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      <tr className="border-b border-slate-100">
+                        <td className="px-4 py-2 text-slate-500 text-xs">Base imponible</td>
+                        <td className="px-4 py-2 text-right font-medium text-slate-800">
+                          {editing ? (
+                            <input
+                              type="number" step="0.01" placeholder="0.00"
+                              value={editData.tax_base}
+                              onChange={(e) => setEditData((d) => ({ ...d, tax_base: e.target.value }))}
+                              className="w-28 border border-slate-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                            />
+                          ) : (
+                            receipt.tax_base != null ? fmt.money(receipt.tax_base, receipt.currency) : '—'
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="border-b border-slate-100">
+                        <td className="px-4 py-2 text-slate-500 text-xs">
+                          IVA {receipt.tax_rate != null ? `(${receipt.tax_rate}%)` : ''}
+                        </td>
+                        <td className="px-4 py-2 text-right font-medium text-slate-800">
+                          {editing ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                type="number" step="0.01" placeholder="21"
+                                value={editData.tax_rate}
+                                onChange={(e) => setEditData((d) => ({ ...d, tax_rate: e.target.value }))}
+                                className="w-16 border border-slate-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                              />
+                              <span className="text-slate-400">%</span>
+                              <input
+                                type="number" step="0.01" placeholder="0.00"
+                                value={editData.tax_amount}
+                                onChange={(e) => setEditData((d) => ({ ...d, tax_amount: e.target.value }))}
+                                className="w-28 border border-slate-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                              />
+                            </div>
+                          ) : (
+                            receipt.tax_amount != null ? fmt.money(receipt.tax_amount, receipt.currency) : '—'
+                          )}
+                        </td>
+                      </tr>
+                      <tr className="bg-slate-50">
+                        <td className="px-4 py-2 text-slate-600 text-xs font-semibold">Total</td>
+                        <td className="px-4 py-2 text-right font-bold text-slate-800">
+                          {receipt.amount != null ? fmt.money(receipt.amount, receipt.currency) : '—'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {/* Approval Info */}
             {receipt.approval_level && (

@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.routes import alerts, analytics, auth, employees, periods, receipts, settings as settings_routes, transactions
+from app.routes import alerts, analytics, auth, employees, periods, projects, receipts, settings as settings_routes, transactions
 
 logging.basicConfig(
     level=logging.INFO,
@@ -81,6 +81,7 @@ app.include_router(transactions.router, prefix="/api/v1/transactions", tags=["tr
 app.include_router(alerts.router, prefix="/api/v1/alerts", tags=["alerts"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(periods.router, prefix="/api/v1/periods", tags=["periods"])
+app.include_router(projects.router, prefix="/api/v1/projects", tags=["projects"])
 app.include_router(settings_routes.router, prefix="/api/v1/settings", tags=["settings"])
 
 

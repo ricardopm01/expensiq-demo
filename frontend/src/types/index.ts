@@ -11,6 +11,15 @@ export interface Employee {
   created_at: string | null;
 }
 
+export interface Project {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  created_at: string | null;
+}
+
 export interface Receipt {
   id: string;
   employee_id: string;
@@ -22,6 +31,10 @@ export interface Receipt {
   amount: number | null;
   currency: string;
   tax: number | null;
+  // IVA breakdown (Sprint 3)
+  tax_base: number | null;
+  tax_rate: number | null;
+  tax_amount: number | null;
   category: string;
   status: string;
   ocr_confidence: number | null;
@@ -33,6 +46,10 @@ export interface Receipt {
   approved_at: string | null;
   approver_name: string | null;
   approval_reason: string | null;
+  // Obra (Sprint 3)
+  project_id: string | null;
+  project_code: string | null;
+  project_name: string | null;
 }
 
 export interface ApprovalSummary {
@@ -272,6 +289,16 @@ export interface ImportResult {
   created: number;
   skipped: number;
   errors: string[];
+}
+
+// ── Spending by Project ────────────────────────────────────────────
+
+export interface SpendingByProject {
+  project_id: string;
+  code: string;
+  name: string;
+  total_spending: number;
+  receipt_count: number;
 }
 
 // ── Periods ────────────────────────────────────────────────────────

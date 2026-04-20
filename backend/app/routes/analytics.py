@@ -15,6 +15,7 @@ from app.models.models import (
     EmployeePeriodStatus,
     Match,
     Period,
+    Project,
     Receipt,
 )
 from app.schemas.schemas import (
@@ -25,6 +26,7 @@ from app.schemas.schemas import (
     ForecastOut,
     MonthlyHistoryPoint,
     ReceiptSummary,
+    SpendingByProjectOut,
     SummaryOut,
     TopSpenderOut,
 )
@@ -357,6 +359,35 @@ def get_employee_forecast(employee_id: str, db: Session = Depends(get_db)):
         insight=forecast_data["insight"],
         monthly_history=[MonthlyHistoryPoint(**m) for m in monthly_history],
     )
+
+
+@router.get("/spending-by-project", response_model=list[SpendingByProjectOut])
+def get_spending_by_project(db: Session = Depends(get_db)):
+    """Total spending grouped by project (obra), ordered by spending desc."""
+    results = (
+        db.query(
+            Project.id.label("project_id"),
+            Project.code,
+            Project.name,
+            func.coalesce(func.sum(Receipt.amount), 0).label("total_spending"),
+            func.count(Receipt.id).label("receipt_count"),
+        )
+        .join(Receipt, Receipt.project_id == Project.id, isouter=True)
+        .filter(Project.active == True)
+        .group_by(Project.id, Project.code, Project.name)
+        .order_by(func.coalesce(func.sum(Receipt.amount), 0).desc())
+        .all()
+    )
+    return [
+        SpendingByProjectOut(
+            project_id=r.project_id,
+            code=r.code,
+            name=r.name,
+            total_spending=float(r.total_spending),
+            receipt_count=r.receipt_count,
+        )
+        for r in results
+    ]
 
 
 @router.get("/employee/{employee_id}/categories", response_model=list[EmployeeCategoryBreakdownOut])

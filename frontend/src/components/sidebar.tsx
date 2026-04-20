@@ -14,6 +14,7 @@ import {
   LogOut,
   X,
   Calendar,
+  FolderKanban,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -29,6 +30,7 @@ const ADMIN_NAV = [
   { href: '/approvals', label: 'Aprobaciones', icon: CheckSquare },
   { href: '/employees', label: 'Empleados', icon: Users },
   { href: '/periods', label: 'Quincenas', icon: Calendar },
+  { href: '/projects', label: 'Obras', icon: FolderKanban },
   { href: '/settings', label: 'Ajustes', icon: SettingsIcon },
 ];
 
