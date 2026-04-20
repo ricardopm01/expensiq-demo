@@ -29,13 +29,20 @@ import {
   Clock,
   BarChart3,
   Receipt as ReceiptIcon,
+  ChevronDown,
+  ChevronUp,
+  FileDown,
+  Calendar,
+  Lock,
+  Unlock,
 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, getBackendToken } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import { Card, KPICard, SectionHeader, Btn, EmptyState, DashboardSkeleton, StatusBadge } from '@/components/ui';
+import { AccionHoyBanner } from '@/components/accion-hoy-banner';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison } from '@/types';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison, Period } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
 /* ──────────────────────────────────────
@@ -269,14 +276,34 @@ function AdminDashboard() {
   const [trend, setTrend] = useState<MonthlyTrend[]>([]);
   const [approvalSummary, setApprovalSummary] = useState<ApprovalSummary | null>(null);
   const [deptComparison, setDeptComparison] = useState<DepartmentComparison[]>([]);
+  const [period, setPeriod] = useState<Period | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoStep, setDemoStep] = useState('');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+
+  useEffect(() => {
+    const saved = typeof window !== 'undefined'
+      ? window.localStorage.getItem('expensiq.dashboardAnalyticsOpen')
+      : null;
+    if (saved === 'true') setAnalyticsOpen(true);
+  }, []);
+
+  const toggleAnalytics = () => {
+    setAnalyticsOpen((v) => {
+      const next = !v;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('expensiq.dashboardAnalyticsOpen', String(next));
+      }
+      return next;
+    });
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, c, sp, a, t, as_, dept] = await Promise.all([
+      const [s, c, sp, a, t, as_, dept, per] = await Promise.all([
         api.get<Summary>('/analytics/summary'),
         api.get<CategoryBreakdown[]>('/analytics/categories'),
         api.get<TopSpender[]>('/analytics/top-spenders'),
@@ -284,6 +311,7 @@ function AdminDashboard() {
         api.get<MonthlyTrend[]>('/analytics/monthly-trend'),
         api.get<ApprovalSummary>('/analytics/approval-summary'),
         api.get<DepartmentComparison[]>('/analytics/department-comparison'),
+        api.get<Period>('/periods/current').catch(() => null),
       ]);
       setSummary(s);
       setCategories(Array.isArray(c) ? c : []);
@@ -292,12 +320,38 @@ function AdminDashboard() {
       setTrend(Array.isArray(t) ? t : []);
       setApprovalSummary(as_);
       setDeptComparison(Array.isArray(dept) ? dept : []);
+      setPeriod(per);
     } catch {
       toast.error('Error cargando datos del dashboard');
     } finally {
       setLoading(false);
     }
   }, [toast]);
+
+  const handleDownloadPeriodPdf = async () => {
+    if (!period) return;
+    setDownloadingPdf(true);
+    try {
+      const token = getBackendToken();
+      const res = await fetch(`/api/v1/periods/${period.id}/report/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const s = period.start_date.replace(/-/g, '');
+      const e = period.end_date.replace(/-/g, '');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expensiq_informe_${s}_${e}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Error al descargar el informe PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -356,6 +410,9 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Acción Hoy Banner — prioritario */}
+      <AccionHoyBanner />
+
       {/* Welcome banner */}
       {summary && summary.receipt_count === 0 && (
         <Card className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200">
@@ -442,6 +499,142 @@ function AdminDashboard() {
           </div>
         </Card>
       )}
+
+      {/* Period Summary Card — descarga informe PDF */}
+      {period && (
+        <Card className="p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-slate-800">Quincena actual</p>
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                      period.status === 'open'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {period.status === 'open' ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                    {period.status === 'open' ? 'Abierta' : 'Cerrada'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {fmt.date(period.start_date)} — {fmt.date(period.end_date)}
+                </p>
+              </div>
+            </div>
+            <Btn
+              variant="secondary"
+              size="sm"
+              onClick={handleDownloadPeriodPdf}
+              loading={downloadingPdf}
+              disabled={period.status === 'open' || downloadingPdf}
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              {period.status === 'open' ? 'PDF (al cerrar)' : 'Informe PDF'}
+            </Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* Monthly Trend + Recent Alerts — información prioritaria */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card hover className="lg:col-span-2 p-5">
+          <SectionHeader
+            title="Tendencia Mensual"
+            subtitle="Gasto por mes (ultimos 6 meses)"
+          />
+          {trend.length === 0 ? (
+            <EmptyState
+              icon={<TrendingUp className="w-12 h-12" />}
+              title="Sin datos"
+              desc="Carga datos de demo para ver la tendencia."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={trend} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={45} />
+                <Tooltip formatter={(value) => [fmt.money(Number(value)), 'Gasto']} contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }} />
+                <Area type="monotone" dataKey="total" stroke="#6366F1" strokeWidth={2.5} fill="url(#trendGrad)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <SectionHeader
+            title="Alertas Recientes"
+            subtitle={`${alerts.length} alertas activas`}
+            action={
+              alerts.length > 0 ? (
+                <Btn variant="ghost" size="sm" onClick={() => router.push('/alerts')}>
+                  Ver todas
+                </Btn>
+              ) : undefined
+            }
+          />
+          {alerts.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Sin alertas activas.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {alerts.slice(0, 4).map((a) => (
+                <div key={a.id} className="flex items-start gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-600">
+                        {ALERT_LABEL[a.alert_type] || a.alert_type}
+                      </span>
+                      {!a.is_read && <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />}
+                    </div>
+                    <p className="text-xs text-slate-700 line-clamp-2">{a.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Acordeón "Análisis detallado" — plegado por defecto */}
+      <Card className="p-0 overflow-hidden">
+        <button
+          onClick={toggleAnalytics}
+          className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center">
+              <BarChart3 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Análisis detallado</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Top gastadores, categorías, empleados y comparativa por departamento
+              </p>
+            </div>
+          </div>
+          {analyticsOpen
+            ? <ChevronUp className="w-4 h-4 text-slate-400" />
+            : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </button>
+
+        {analyticsOpen && (
+          <div className="border-t border-slate-100 p-5 space-y-6 bg-slate-50/30">
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -598,93 +791,39 @@ function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Monthly Trend + Approval Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Monthly Trend AreaChart */}
-        <Card hover className="lg:col-span-2 p-5">
-          <SectionHeader
-            title="Tendencia Mensual"
-            subtitle="Gasto por mes (ultimos 6 meses)"
-          />
-          {trend.length === 0 ? (
-            <EmptyState
-              icon={<TrendingUp className="w-12 h-12" />}
-              title="Sin datos"
-              desc="Carga datos de demo para ver la tendencia."
-            />
-          ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <AreaChart data={trend} margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={45}
-                />
-                <Tooltip
-                  formatter={(value) => [fmt.money(Number(value)), 'Gasto']}
-                  contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#6366F1"
-                  strokeWidth={2.5}
-                  fill="url(#trendGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </Card>
-
-        {/* Approval Summary Panel */}
-        <Card hover className="p-5">
-          <SectionHeader
-            title="Aprobaciones"
-            subtitle="Pendientes por nivel"
-            action={
-              <Btn variant="ghost" size="sm" onClick={() => router.push('/approvals')}>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Btn>
-            }
-          />
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
-              <Zap className="w-5 h-5 text-emerald-500" />
-              <div className="flex-1">
-                <p className="text-xs text-slate-400">Auto (&lt;100 EUR)</p>
-                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_auto ?? 0}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl">
-              <Shield className="w-5 h-5 text-indigo-500" />
-              <div className="flex-1">
-                <p className="text-xs text-slate-400">Administrador (&ge;100 EUR)</p>
-                <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_admin ?? 0}</p>
-              </div>
-            </div>
-            <div className="text-center pt-1">
-              <span className="text-xs text-emerald-600 font-medium">
-                {approvalSummary?.approved_today ?? 0} aprobados hoy
-              </span>
+      {/* Approval Summary Panel */}
+      <Card hover className="p-5">
+        <SectionHeader
+          title="Aprobaciones"
+          subtitle="Pendientes por nivel"
+          action={
+            <Btn variant="ghost" size="sm" onClick={() => router.push('/approvals')}>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Btn>
+          }
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-xl">
+            <Zap className="w-5 h-5 text-emerald-500" />
+            <div className="flex-1">
+              <p className="text-xs text-slate-400">Auto (&lt;100 EUR)</p>
+              <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_auto ?? 0}</p>
             </div>
           </div>
-        </Card>
-      </div>
+          <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl">
+            <Shield className="w-5 h-5 text-indigo-500" />
+            <div className="flex-1">
+              <p className="text-xs text-slate-400">Administrador (&ge;100 EUR)</p>
+              <p className="text-lg font-bold text-slate-800">{approvalSummary?.pending_admin ?? 0}</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-center p-3 bg-slate-50 rounded-xl">
+            <span className="text-xs text-emerald-600 font-medium">
+              {approvalSummary?.approved_today ?? 0} aprobados hoy
+            </span>
+          </div>
+        </div>
+      </Card>
 
       {/* Employee Grid */}
       {spenders.length > 0 && (
@@ -788,48 +927,6 @@ function AdminDashboard() {
         </Card>
       )}
 
-      {/* Recent Alerts */}
-      <Card className="p-5">
-        <SectionHeader
-          title="Alertas Recientes"
-          subtitle={`${alerts.length} alertas activas`}
-          action={
-            alerts.length > 0 ? (
-              <Btn variant="ghost" size="sm" onClick={() => router.push('/alerts')}>
-                Ver todas
-              </Btn>
-            ) : undefined
-          }
-        />
-        {alerts.length === 0 ? (
-          <div className="text-center py-8">
-            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-2" />
-            <p className="text-sm text-slate-400">
-              Sin alertas activas. El sistema esta limpio.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {alerts.map((a) => (
-              <div
-                key={a.id}
-                className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100"
-              >
-                <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-200 text-slate-600">
-                      {ALERT_LABEL[a.alert_type] || a.alert_type}
-                    </span>
-                    {!a.is_read && (
-                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-700">{a.description}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{fmt.rel(a.created_at)}</p>
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </Card>

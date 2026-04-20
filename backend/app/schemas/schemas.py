@@ -77,6 +77,9 @@ class TransactionOut(BaseModel):
     amount: float
     currency: str = "EUR"
     account_id: Optional[str] = None
+    match_status: str = "unmatched"  # matched | low_confidence | unmatched
+    match_confidence: Optional[float] = None
+    matched_receipt_id: Optional[UUID] = None
 
     model_config = {"from_attributes": True}
 
@@ -124,6 +127,16 @@ class TopSpenderOut(BaseModel):
     total_month: float
     receipt_count: int
     monthly_budget: Optional[float] = None
+
+
+class ActionTodayOut(BaseModel):
+    receipts_pending_approval: int
+    transactions_unmatched: int
+    period_pending_employees: int
+    period_pending_label: str  # "sin enviar recibos" | "sin revisar" | ""
+    alerts_urgent: int
+    period_id: Optional[UUID] = None
+    period_status: Optional[str] = None  # "open" | "closed" | None
 
 
 # ── Action Results ────────────────────────────────────────────────
