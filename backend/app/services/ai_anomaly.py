@@ -18,6 +18,7 @@ For each anomaly found, return a JSON array of objects with:
 - "alert_type": one of "policy_violation", "duplicate", "rapid_repeat", "no_match", "suspicious_pattern"
 - "description": clear explanation in Spanish of what is suspicious and why
 - "severity": "low", "medium", "high", or "critical"
+- "suggested_action": una frase corta en español con el siguiente paso concreto que debe dar el admin (verbo en infinitivo, mencionando al empleado por nombre cuando aplique). Ejemplos: "Verificar con María si es un gasto duplicado o un error de subida", "Revisar política de gastos y contactar a Juan Pérez"
 - "receipt_id": the UUID of the receipt involved (if applicable, otherwise null)
 - "employee_id": the UUID of the employee involved (if applicable, otherwise null)
 

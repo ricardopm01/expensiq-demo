@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -68,6 +69,7 @@ def ai_anomaly_scan(db: Session = Depends(get_db)):
             alert_type=a.get("alert_type", "suspicious_pattern"),
             description=a.get("description", "Anomalia detectada por IA"),
             severity=a.get("severity", "medium"),
+            suggested_action=a.get("suggested_action"),
         )
         db.add(alert)
         created += 1
@@ -108,6 +110,11 @@ def budget_alert_scan(db: Session = Depends(get_db)):
         alert_type = "budget_exceeded" if pct >= 100 else "budget_warning"
         severity = "high" if pct >= 100 else "medium"
         label = "superado" if pct >= 100 else f"al {pct:.0f}%"
+        suggested_action = (
+            f"Contactar a {emp.name} — presupuesto del mes superado en {pct - 100:.0f}%"
+            if pct >= 100
+            else f"Revisar gasto de {emp.name} antes de fin de mes ({pct:.0f}% del presupuesto)"
+        )
 
         # Avoid duplicate alerts this month
         existing = db.query(Alert).filter(
@@ -129,6 +136,7 @@ def budget_alert_scan(db: Session = Depends(get_db)):
                 f"Gasto acumulado: {total:.0f} EUR de {emp.monthly_budget:.0f} EUR ({pct:.0f}%)."
             ),
             severity=severity,
+            suggested_action=suggested_action,
         )
         db.add(alert)
         created += 1
@@ -146,7 +154,20 @@ def list_alerts(
     query = db.query(Alert)
     if resolved is not None:
         query = query.filter(Alert.resolved == resolved)
-    return query.order_by(Alert.created_at.desc()).limit(limit).all()
+    # Sprint 4: orden explícito por severidad (PostgreSQL ordena strings alfabéticamente,
+    # lo que pondría 'low' antes que 'high'). Usamos CASE para forzar la prioridad real.
+    severity_order = case(
+        (Alert.severity == "critical", 0),
+        (Alert.severity == "high", 1),
+        (Alert.severity == "medium", 2),
+        (Alert.severity == "low", 3),
+        else_=4,
+    )
+    return (
+        query.order_by(severity_order, Alert.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 @router.patch("/{alert_id}/read", response_model=AlertOut)

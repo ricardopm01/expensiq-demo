@@ -9,6 +9,9 @@ import {
   CheckCircle,
   UserCog,
   Crown,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
@@ -16,8 +19,10 @@ import { useRole } from '@/lib/role-context';
 import { useToast } from '@/components/toast';
 import { Card, KPICard, SectionHeader, DataTable, StatusBadge, Btn, TablePageSkeleton, EmptyState } from '@/components/ui';
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
-import type { Receipt, Employee, ApprovalSummary, ApproveRejectResult } from '@/types';
+import type { Receipt, Employee, ApprovalSummary, ApproveRejectResult, AutoReady } from '@/types';
 import { APPROVAL_LEVEL_CONFIG } from '@/types';
+
+type RiskTab = 'safe' | 'review' | 'all';
 
 export default function ApprovalsPage() {
   const { role } = useRole();
@@ -26,13 +31,18 @@ export default function ApprovalsPage() {
   const [summary, setSummary] = useState<ApprovalSummary | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [autoReady, setAutoReady] = useState<AutoReady>({ count: 0, total_amount_eur: 0, receipt_ids: [] });
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [approving, setApproving] = useState(false);
+  const [didPreselect, setDidPreselect] = useState(false);
 
-  // Filters
+  // Tabs (Sprint 4): primary navigation between sin-riesgo / revisión / todos
+  const [riskTab, setRiskTab] = useState<RiskTab>('safe');
+  // Filters legacy (selects bajo "Filtros avanzados")
   const [levelFilter, setLevelFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Modal
   const [modalReceipt, setModalReceipt] = useState<Receipt | null>(null);
@@ -41,14 +51,16 @@ export default function ApprovalsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, r, e] = await Promise.all([
+      const [s, r, e, ar] = await Promise.all([
         api.get<ApprovalSummary>('/analytics/approval-summary'),
         api.get<Receipt[]>('/receipts?limit=500'),
         api.get<Employee[]>('/employees'),
+        api.get<AutoReady>('/approvals/auto-ready'),
       ]);
       setSummary(s);
       setReceipts(r);
       setEmployees(e);
+      setAutoReady(ar);
     } catch {
       toast.error('Error cargando datos de aprobaciones');
     } finally {
@@ -58,13 +70,32 @@ export default function ApprovalsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Sprint 4: smart preselect — primer load preselecciona los auto-ready aprobables.
+  useEffect(() => {
+    if (didPreselect) return;
+    if (autoReady.receipt_ids.length === 0) return;
+    const approvable = autoReady.receipt_ids.filter((id) => {
+      const r = receipts.find((x) => x.id === id);
+      return r ? canApprove(r.approval_level) : false;
+    });
+    if (approvable.length > 0) {
+      setSelected(new Set(approvable));
+      setDidPreselect(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoReady, receipts]);
+
   // Filter receipts to pending ones (pending, review, flagged)
   const pendingStatuses = ['pending', 'review', 'flagged'];
+  const safeIds = new Set(autoReady.receipt_ids);
   const filtered = receipts.filter((r) => {
     if (!pendingStatuses.includes(r.status)) return false;
+    // Sprint 4: tabs primarios
+    if (riskTab === 'safe' && !safeIds.has(r.id)) return false;
+    if (riskTab === 'review' && safeIds.has(r.id)) return false;
+    // Legacy selects (filtros avanzados)
     if (levelFilter) {
       if (levelFilter === 'admin') {
-        // Match admin, manager, director (legacy)
         if (!['admin', 'manager', 'director'].includes(r.approval_level || '')) return false;
       } else if (r.approval_level !== levelFilter) {
         return false;
@@ -73,6 +104,11 @@ export default function ApprovalsPage() {
     if (statusFilter && r.status !== statusFilter) return false;
     return true;
   });
+
+  // Conteos para badges en tabs (sin aplicar filtros legacy)
+  const allPending = receipts.filter((r) => pendingStatuses.includes(r.status));
+  const safeCount = allPending.filter((r) => safeIds.has(r.id)).length;
+  const reviewCount = allPending.length - safeCount;
 
   // Can current role approve this level?
   const canApprove = (level: string | null) => {
@@ -96,12 +132,13 @@ export default function ApprovalsPage() {
     }
   };
 
-  const batchApprove = async () => {
-    if (selected.size === 0) return;
+  const batchApprove = async (ids?: string[]) => {
+    const toApprove = ids ?? Array.from(selected);
+    if (toApprove.length === 0) return;
     setApproving(true);
     let ok = 0;
     let fail = 0;
-    for (const id of Array.from(selected)) {
+    for (const id of toApprove) {
       try {
         await api.post<ApproveRejectResult>(`/receipts/${id}/approve`);
         ok++;
@@ -113,6 +150,15 @@ export default function ApprovalsPage() {
     setSelected(new Set());
     setApproving(false);
     load();
+  };
+
+  const approveAllSafe = async () => {
+    // Sólo los que el rol actual puede aprobar (auto siempre lo puede cualquier rol).
+    const approvable = autoReady.receipt_ids.filter((id) => {
+      const r = receipts.find((x) => x.id === id);
+      return r ? canApprove(r.approval_level) : false;
+    });
+    await batchApprove(approvable);
   };
 
   if (loading) return <TablePageSkeleton />;
@@ -151,15 +197,41 @@ export default function ApprovalsPage() {
         />
       </div>
 
+      {/* Sprint 4 — Banner Auto-ready: recibos sin riesgo listos para aprobar */}
+      {autoReady.count > 0 && (
+        <Card className="p-4 border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {autoReady.count} {autoReady.count === 1 ? 'recibo listo' : 'recibos listos'} para aprobar
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Importe total: <span className="font-semibold text-slate-700">{fmt.money(autoReady.total_amount_eur)}</span>
+                  {' '}· Auto-aprobables sin alertas asociadas
+                </p>
+              </div>
+            </div>
+            <Btn onClick={approveAllSafe} loading={approving} size="sm">
+              <CheckSquare className="w-3.5 h-3.5" />
+              Aprobar todos
+            </Btn>
+          </div>
+        </Card>
+      )}
+
       {/* Filters + Batch actions */}
       <Card className="p-5">
         <SectionHeader
           title="Cola de aprobacion"
-          subtitle={`${filtered.length} recibos pendientes`}
+          subtitle={`${filtered.length} recibos · ${riskTab === 'safe' ? 'sin riesgo' : riskTab === 'review' ? 'requieren revisión' : 'todos'}`}
           action={
             <div className="flex items-center gap-2">
               {selected.size > 0 && (
-                <Btn onClick={batchApprove} loading={approving} size="sm">
+                <Btn onClick={() => batchApprove()} loading={approving} size="sm">
                   <CheckSquare className="w-3.5 h-3.5" />
                   Aprobar {selected.size}
                 </Btn>
@@ -168,38 +240,74 @@ export default function ApprovalsPage() {
           }
         />
 
-        <div className="flex items-center gap-3 mb-4">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={levelFilter}
-            onChange={(e) => setLevelFilter(e.target.value)}
-            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600"
-          >
-            <option value="">Todos los niveles</option>
-            <option value="auto">Auto (&lt;100€)</option>
-            <option value="manager">Manager (100-500€)</option>
-            <option value="director">Director (≥500€)</option>
-            <option value="admin">Admin (legacy)</option>
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600"
-          >
-            <option value="">Todos los estados</option>
-            <option value="pending">Pendiente</option>
-            <option value="review">Revisar</option>
-            <option value="flagged">Marcado</option>
-          </select>
+        {/* Sprint 4 — Tabs primarios: Sin riesgo / Requieren revisión / Todos */}
+        <div className="flex items-center gap-1 mb-4 border-b border-slate-100">
+          {([
+            { id: 'safe', label: 'Sin riesgo', count: safeCount },
+            { id: 'review', label: 'Requieren revisión', count: reviewCount },
+            { id: 'all', label: 'Todos', count: allPending.length },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setRiskTab(tab.id)}
+              className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+                riskTab === tab.id
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab.label}
+              <span className={`ml-1.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-semibold ${
+                riskTab === tab.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          ))}
 
-          {/* Role indicator */}
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-400">
+          {/* Role indicator a la derecha */}
+          <div className="ml-auto flex items-center gap-1.5 text-xs text-slate-400 pb-2">
             <Shield className="w-3.5 h-3.5" />
-            Rol actual: <span className="font-semibold text-slate-600">
+            Rol: <span className="font-semibold text-slate-600">
               {role === 'admin' ? 'Administrador' : 'Empleado'}
             </span>
           </div>
         </div>
+
+        {/* Filtros avanzados (legacy selects, plegados por defecto) */}
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-slate-600 mb-3"
+        >
+          <Filter className="w-3 h-3" />
+          Filtros avanzados
+          {showAdvanced ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+        </button>
+        {showAdvanced && (
+          <div className="flex items-center gap-3 mb-4">
+            <select
+              value={levelFilter}
+              onChange={(e) => setLevelFilter(e.target.value)}
+              className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600"
+            >
+              <option value="">Todos los niveles</option>
+              <option value="auto">Auto (&lt;100€)</option>
+              <option value="manager">Manager (100-500€)</option>
+              <option value="director">Director (≥500€)</option>
+              <option value="admin">Admin (legacy)</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white text-slate-600"
+            >
+              <option value="">Todos los estados</option>
+              <option value="pending">Pendiente</option>
+              <option value="review">Revisar</option>
+              <option value="flagged">Marcado</option>
+            </select>
+          </div>
+        )}
 
         <DataTable
           headers={['', 'Comercio', 'Empleado', 'Importe', 'Nivel', 'Estado', 'Fecha', '']}
