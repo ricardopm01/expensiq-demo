@@ -187,9 +187,13 @@ export default function AlertsPage() {
               card: 'border-slate-200 bg-slate-50',
               badge: 'bg-slate-100 text-slate-600',
             };
+            // Sprint 4: high/critical pintan la card de rojo claro independientemente
+            // del alert_type, para que destaquen sobre el resto.
+            const isUrgent = a.severity === 'high' || a.severity === 'critical';
+            const cardBg = isUrgent ? 'border-red-300 bg-red-50' : cfg.card;
             const IconComp = ALERT_ICONS[a.alert_type] || AlertTriangle;
             return (
-              <Card key={a.id} className={`p-4 border ${cfg.card}`}>
+              <Card key={a.id} className={`p-4 border ${cardBg}`}>
                 <div className="flex items-start gap-3">
                   <IconComp className="w-5 h-5 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
@@ -218,6 +222,11 @@ export default function AlertsPage() {
                     <p className="text-sm font-medium text-slate-700">
                       {a.description}
                     </p>
+                    {a.suggested_action && (
+                      <p className="text-xs text-slate-500 italic mt-1">
+                        → {a.suggested_action}
+                      </p>
+                    )}
                     <p className="text-xs text-slate-400 mt-1">
                       {fmt.rel(a.created_at)}
                     </p>

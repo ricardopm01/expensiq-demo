@@ -126,12 +126,20 @@ class AlertOut(BaseModel):
     alert_type: str
     description: str
     severity: str = "medium"
+    suggested_action: Optional[str] = None
     is_read: bool = False
     resolved: bool = False
     created_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class AutoReadyOut(BaseModel):
+    """Sprint 4 — Recibos auto-aprobables sin alertas, para banner de approvals."""
+    count: int
+    total_amount_eur: float
+    receipt_ids: list[UUID]
 
 
 # ── Analytics ─────────────────────────────────────────────────────

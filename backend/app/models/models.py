@@ -170,6 +170,7 @@ class Alert(Base):
     alert_type = Column(String(50), nullable=False)
     description = Column(Text, nullable=False)
     severity = Column(String(20), default="medium")
+    suggested_action = Column(Text, nullable=True)
     is_read = Column(Boolean, nullable=False, default=False)
     resolved = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)

@@ -103,10 +103,17 @@ export interface Alert {
   alert_type: string;
   description: string;
   severity: string;
+  suggested_action?: string | null;
   is_read: boolean;
   resolved: boolean;
   created_at: string | null;
   resolved_at: string | null;
+}
+
+export interface AutoReady {
+  count: number;
+  total_amount_eur: number;
+  receipt_ids: string[];
 }
 
 export interface Summary {
