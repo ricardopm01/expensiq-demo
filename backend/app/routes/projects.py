@@ -6,8 +6,9 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_admin
 from app.db.session import get_db
-from app.models.models import Project
+from app.models.models import Employee, Project
 from app.schemas.schemas import ProjectCreate, ProjectOut, ProjectUpdate
 
 logger = logging.getLogger("expensiq.projects")
@@ -27,7 +28,11 @@ def list_projects(
 
 
 @router.post("", response_model=ProjectOut, status_code=201)
-def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
+def create_project(
+    body: ProjectCreate,
+    db: Session = Depends(get_db),
+    _: Employee = Depends(require_admin),
+):
     existing = db.query(Project).filter(Project.code == body.code).first()
     if existing:
         raise HTTPException(status_code=409, detail=f"Ya existe una obra con código '{body.code}'")
@@ -45,7 +50,12 @@ def create_project(body: ProjectCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: str, body: ProjectUpdate, db: Session = Depends(get_db)):
+def update_project(
+    project_id: str,
+    body: ProjectUpdate,
+    db: Session = Depends(get_db),
+    _: Employee = Depends(require_admin),
+):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Obra no encontrada")
@@ -61,7 +71,11 @@ def update_project(project_id: str, body: ProjectUpdate, db: Session = Depends(g
 
 
 @router.delete("/{project_id}", status_code=204)
-def delete_project(project_id: str, db: Session = Depends(get_db)):
+def delete_project(
+    project_id: str,
+    db: Session = Depends(get_db),
+    _: Employee = Depends(require_admin),
+):
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Obra no encontrada")

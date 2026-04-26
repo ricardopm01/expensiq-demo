@@ -85,6 +85,7 @@ def export_receipts_csv(
     status: Optional[str] = None,
     employee_id: Optional[str] = None,
     category: Optional[str] = None,
+    project_id: Optional[str] = None,
     date_from: Optional[DateType] = None,
     date_to: Optional[DateType] = None,
     search: Optional[str] = None,
@@ -98,6 +99,8 @@ def export_receipts_csv(
         query = query.filter(Receipt.employee_id == employee_id)
     if category:
         query = query.filter(Receipt.category == category)
+    if project_id:
+        query = query.filter(Receipt.project_id == project_id)
     if date_from:
         query = query.filter(Receipt.date >= date_from)
     if date_to:
