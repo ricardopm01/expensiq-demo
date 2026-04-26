@@ -42,7 +42,7 @@ import { Card, KPICard, SectionHeader, Btn, EmptyState, DashboardSkeleton, Statu
 import { AccionHoyBanner } from '@/components/accion-hoy-banner';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison, Period } from '@/types';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison, Period, SpendingByProject } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
 /* ──────────────────────────────────────
@@ -276,6 +276,7 @@ function AdminDashboard() {
   const [trend, setTrend] = useState<MonthlyTrend[]>([]);
   const [approvalSummary, setApprovalSummary] = useState<ApprovalSummary | null>(null);
   const [deptComparison, setDeptComparison] = useState<DepartmentComparison[]>([]);
+  const [spendingByProject, setSpendingByProject] = useState<SpendingByProject[]>([]);
   const [period, setPeriod] = useState<Period | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
@@ -303,7 +304,7 @@ function AdminDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, c, sp, a, t, as_, dept, per] = await Promise.all([
+      const [s, c, sp, a, t, as_, dept, per, sbp] = await Promise.all([
         api.get<Summary>('/analytics/summary'),
         api.get<CategoryBreakdown[]>('/analytics/categories'),
         api.get<TopSpender[]>('/analytics/top-spenders'),
@@ -312,6 +313,7 @@ function AdminDashboard() {
         api.get<ApprovalSummary>('/analytics/approval-summary'),
         api.get<DepartmentComparison[]>('/analytics/department-comparison'),
         api.get<Period>('/periods/current').catch(() => null),
+        api.get<SpendingByProject[]>('/analytics/spending-by-project').catch(() => []),
       ]);
       setSummary(s);
       setCategories(Array.isArray(c) ? c : []);
@@ -321,6 +323,7 @@ function AdminDashboard() {
       setApprovalSummary(as_);
       setDeptComparison(Array.isArray(dept) ? dept : []);
       setPeriod(per);
+      setSpendingByProject(Array.isArray(sbp) ? sbp.filter(p => p.total_spending > 0).slice(0, 10) : []);
     } catch {
       toast.error('Error cargando datos del dashboard');
     } finally {
@@ -866,6 +869,60 @@ function AdminDashboard() {
               );
             })}
           </div>
+        </Card>
+      )}
+
+      {/* Gasto por Obra */}
+      {spendingByProject.length > 0 && (
+        <Card className="p-5">
+          <SectionHeader
+            title="Gasto por Obra"
+            subtitle="Top obras por volumen de gasto — clic para filtrar recibos"
+            action={
+              <button
+                onClick={() => router.push('/projects')}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+              >
+                Gestionar obras <ArrowRight className="w-3 h-3" />
+              </button>
+            }
+          />
+          <ResponsiveContainer width="100%" height={Math.max(140, spendingByProject.length * 36)}>
+            <BarChart data={spendingByProject} layout="vertical" margin={{ left: 10, right: 40 }}>
+              <XAxis
+                type="number"
+                tickFormatter={(v) => fmt.money(v)}
+                tick={{ fontSize: 10, fill: '#94a3b8' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="code"
+                tick={{ fontSize: 11, fill: '#4f46e5', fontFamily: 'monospace' }}
+                axisLine={false}
+                tickLine={false}
+                width={90}
+              />
+              <Tooltip
+                formatter={(value, _name, props) => [
+                  `${fmt.money(Number(value))} · ${(props.payload as SpendingByProject).receipt_count} recibos`,
+                  (props.payload as SpendingByProject).name,
+                ]}
+                contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
+              />
+              <Bar
+                dataKey="total_spending"
+                radius={[0, 8, 8, 0]}
+                fill="#6366f1"
+                cursor="pointer"
+                onClick={(_data, index) => {
+                  const d = spendingByProject[index];
+                  if (d?.project_id) router.push(`/receipts?project_id=${d.project_id}`);
+                }}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </Card>
       )}
 

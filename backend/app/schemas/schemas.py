@@ -38,6 +38,31 @@ class EmployeeOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Projects ──────────────────────────────────────────────────────
+
+class ProjectCreate(BaseModel):
+    code: str
+    name: str
+    description: Optional[str] = None
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = None
+
+
+class ProjectOut(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    active: bool = True
+    created_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+
 # ── Receipts ──────────────────────────────────────────────────────
 
 class ReceiptOut(BaseModel):
@@ -51,6 +76,10 @@ class ReceiptOut(BaseModel):
     amount: Optional[float] = None
     currency: str = "EUR"
     tax: Optional[float] = None
+    # IVA breakdown (Sprint 3)
+    tax_base: Optional[float] = None
+    tax_rate: Optional[float] = None
+    tax_amount: Optional[float] = None
     category: str = "other"
     status: str = "pending"
     ocr_confidence: Optional[float] = None
@@ -62,6 +91,10 @@ class ReceiptOut(BaseModel):
     approved_at: Optional[datetime] = None
     approver_name: Optional[str] = None
     approval_reason: Optional[str] = None
+    # Obra (Sprint 3)
+    project_id: Optional[UUID] = None
+    project_code: Optional[str] = None
+    project_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -203,8 +236,12 @@ class ReceiptUpdate(BaseModel):
     amount: Optional[float] = None
     currency: Optional[str] = None
     tax: Optional[float] = None
+    tax_base: Optional[float] = None
+    tax_rate: Optional[float] = None
+    tax_amount: Optional[float] = None
     category: Optional[str] = None
     notes: Optional[str] = None
+    project_id: Optional[str] = None  # UUID string or null
 
 
 class ApproveRejectResult(BaseModel):
@@ -244,6 +281,16 @@ class ImportResult(BaseModel):
     created: int
     skipped: int
     errors: list[str] = []
+
+
+# ── Spending by Project ───────────────────────────────────────────
+
+class SpendingByProjectOut(BaseModel):
+    project_id: UUID
+    code: str
+    name: str
+    total_spending: float
+    receipt_count: int
 
 
 # ── Department Comparison ─────────────────────────────────────────

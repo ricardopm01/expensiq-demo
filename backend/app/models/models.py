@@ -41,6 +41,20 @@ class Employee(Base):
     period_statuses = relationship("EmployeePeriodStatus", back_populates="employee", foreign_keys="[EmployeePeriodStatus.employee_id]")
 
 
+class Project(Base):
+    """Obra o proyecto al que se imputa un gasto."""
+    __tablename__ = "projects"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(100), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    receipts = relationship("Receipt", back_populates="project")
+
+
 class Receipt(Base):
     __tablename__ = "receipts"
 
@@ -53,6 +67,10 @@ class Receipt(Base):
     amount = Column(Numeric(10, 2))
     currency = Column(String(3), default="EUR")
     tax = Column(Numeric(10, 2))
+    # IVA breakdown (Sprint 3)
+    tax_base = Column(Numeric(10, 2))
+    tax_rate = Column(Numeric(5, 2))    # e.g. 21.00
+    tax_amount = Column(Numeric(10, 2))
     category = Column(String(20), default="other")
     status = Column(String(20), nullable=False, default="pending")
     ocr_confidence = Column(Numeric(4, 3))
@@ -65,10 +83,13 @@ class Receipt(Base):
     approval_level = Column(String(20))  # auto, manager, director
     approved_by = Column(UUID(as_uuid=True), ForeignKey("employees.id", ondelete="SET NULL"))
     approved_at = Column(DateTime(timezone=True))
+    # Obra (Sprint 3)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="SET NULL"))
 
     employee = relationship("Employee", back_populates="receipts", foreign_keys=[employee_id])
     approver = relationship("Employee", foreign_keys=[approved_by])
     matches = relationship("Match", back_populates="receipt")
+    project = relationship("Project", back_populates="receipts")
 
     @property
     def employee_name(self):
@@ -77,6 +98,14 @@ class Receipt(Base):
     @property
     def approver_name(self):
         return self.approver.name if self.approver else None
+
+    @property
+    def project_code(self):
+        return self.project.code if self.project else None
+
+    @property
+    def project_name(self):
+        return self.project.name if self.project else None
 
     @property
     def approval_reason(self):
