@@ -15,7 +15,11 @@ import {
   BarChart3,
   FolderOpen,
   User,
+  CalendarClock,
+  AlertTriangle,
+  CheckCheck,
 } from 'lucide-react';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/format';
 import {
@@ -29,7 +33,7 @@ import {
 import { ReceiptDetailModal } from '@/components/receipt-detail-modal';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { EmployeeDetail, Receipt } from '@/types';
+import type { EmployeeDetail, Receipt, MyCurrentPeriodStatus } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR } from '@/types';
 
 const AVATAR_COLORS = [
@@ -51,10 +55,95 @@ function avatarBg(name: string) {
   return AVATAR_COLORS[(name ? name.charCodeAt(0) : 0) % AVATAR_COLORS.length];
 }
 
+function MyPeriodCard({ data }: { data: MyCurrentPeriodStatus }) {
+  const { period_status, review_status, review_note, reviewed_by_name, reviewed_at, days_remaining, period_start, period_end, flagged_receipts_count } = data;
+  const range = `${fmt.date(period_start)} – ${fmt.date(period_end)}`;
+
+  if (review_status === 'flagged') {
+    return (
+      <Card className="p-5 border-l-4 border-amber-500 bg-amber-50/60">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-amber-900">Quincena con incidencia</h3>
+              <span className="text-xs text-amber-700">{range}</span>
+            </div>
+            {review_note && (
+              <p className="text-sm text-amber-900 mt-2 leading-relaxed">
+                <span className="font-semibold">Nota de la admin:</span> {review_note}
+              </p>
+            )}
+            {reviewed_by_name && reviewed_at && (
+              <p className="text-xs text-amber-700 mt-1">
+                Marcada por {reviewed_by_name} · {fmt.date(reviewed_at)}
+              </p>
+            )}
+            {flagged_receipts_count > 0 && (
+              <Link
+                href="/receipts?status=rejected"
+                className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+              >
+                Ver {flagged_receipts_count} recibo{flagged_receipts_count !== 1 ? 's' : ''} marcado{flagged_receipts_count !== 1 ? 's' : ''}
+              </Link>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (review_status === 'approved') {
+    return (
+      <Card className="p-5 border-l-4 border-emerald-500 bg-emerald-50/60">
+        <div className="flex items-start gap-3">
+          <CheckCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-emerald-900">Quincena aprobada</h3>
+            <p className="text-xs text-emerald-700 mt-0.5">{range}</p>
+            {reviewed_by_name && reviewed_at && (
+              <p className="text-xs text-emerald-700 mt-1">
+                Aprobada por {reviewed_by_name} · {fmt.date(reviewed_at)}
+              </p>
+            )}
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // pending: período abierto en curso, o cerrado sin revisar
+  const isOpen = period_status === 'open';
+  return (
+    <Card className="p-5">
+      <div className="flex items-start gap-3">
+        <CalendarClock className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold text-slate-800">
+            {isOpen ? 'Quincena en curso' : 'Quincena cerrada — pendiente de revisión'}
+          </h3>
+          <p className="text-xs text-slate-500 mt-0.5">{range}</p>
+          {isOpen && (
+            <p className="text-sm text-slate-700 mt-2">
+              {days_remaining === 0
+                ? <span className="font-semibold text-amber-700">Hoy cierra el periodo</span>
+                : <>Quedan <span className="font-bold text-indigo-700">{days_remaining}</span> día{days_remaining !== 1 ? 's' : ''} para el cierre</>}
+            </p>
+          )}
+          {!isOpen && (
+            <p className="text-sm text-slate-600 mt-2">La admin revisará tus recibos en breve.</p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export default function ProfilePage() {
   const toast = useToast();
   const { employeeId } = useRole();
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
+  const [periodStatus, setPeriodStatus] = useState<MyCurrentPeriodStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
@@ -65,9 +154,14 @@ export default function ProfilePage() {
       return;
     }
     setLoading(true);
-    api
-      .get<EmployeeDetail>(`/employees/${employeeId}`)
-      .then((e) => setEmployee(e))
+    Promise.all([
+      api.get<EmployeeDetail>(`/employees/${employeeId}`),
+      api.get<MyCurrentPeriodStatus>('/periods/me/current-status').catch(() => null),
+    ])
+      .then(([e, p]) => {
+        setEmployee(e);
+        setPeriodStatus(p);
+      })
       .catch(() => toast.error('Error cargando perfil'))
       .finally(() => setLoading(false));
   }, [employeeId, toast]);
@@ -104,6 +198,9 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-5">
+      {/* Sprint 5A — Mi quincena actual */}
+      {periodStatus && <MyPeriodCard data={periodStatus} />}
+
       {/* Employee Header */}
       <Card className="p-6">
         <div className="flex items-start gap-5">
