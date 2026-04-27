@@ -429,6 +429,18 @@ function ReceiptsPage() {
             >
               <Download className="w-3.5 h-3.5" /> Exportar CSV
             </button>
+            {!isEmployee && (
+              <button
+                onClick={() => {
+                  const q = buildQuery().replace('/receipts?', '');
+                  window.open(`/api/v1/receipts/export/csv-sap?${q}`, '_blank');
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+                title="Exporta CSV en formato preliminar para importar a SAP"
+              >
+                <Download className="w-3.5 h-3.5" /> Exportar SAP
+              </button>
+            )}
           </div>
         </div>
 

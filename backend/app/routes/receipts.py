@@ -144,6 +144,85 @@ def export_receipts_csv(
     )
 
 
+@router.get("/export/csv-sap")
+def export_receipts_csv_sap(
+    status: Optional[str] = None,
+    employee_id: Optional[str] = None,
+    category: Optional[str] = None,
+    project_id: Optional[str] = None,
+    date_from: Optional[DateType] = None,
+    date_to: Optional[DateType] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Sprint 5B - CSV preliminar para importacion a SAP.
+
+    Columnas en el orden esperado por SAP segun audit doc 2026-04-17:
+    Fecha, NIF empleado, Obra, Comercio, Base imponible, Tipo IVA,
+    Cuota IVA, Total, Categoria, Estado, Aprobado por, Centro de coste,
+    Cuenta contable.
+
+    NIF, Centro de coste y Cuenta contable salen vacios hasta que Lezama
+    confirme el mapeo (preguntas 1, 2, 3 y 16 del audit doc). El endpoint
+    queda listo para producir el CSV definitivo en cuanto se completen
+    esos campos.
+    """
+    from sqlalchemy.orm import joinedload
+    query = db.query(Receipt).options(
+        joinedload(Receipt.employee),
+        joinedload(Receipt.project),
+        joinedload(Receipt.approver),
+    )
+    if status:
+        query = query.filter(Receipt.status == status)
+    if employee_id:
+        query = query.filter(Receipt.employee_id == employee_id)
+    if category:
+        query = query.filter(Receipt.category == category)
+    if project_id:
+        query = query.filter(Receipt.project_id == project_id)
+    if date_from:
+        query = query.filter(Receipt.date >= date_from)
+    if date_to:
+        query = query.filter(Receipt.date <= date_to)
+    if search:
+        query = query.filter(Receipt.merchant.ilike(f"%{search}%"))
+    receipts = query.order_by(Receipt.date.desc()).all()
+
+    output = io.StringIO()
+    # BOM UTF-8 para que Excel reconozca acentos al abrir directamente
+    output.write("﻿")
+    writer = csv.writer(output, delimiter=";")  # ; es separador estandar en Excel ES
+    writer.writerow([
+        "Fecha", "NIF empleado", "Obra", "Comercio", "Base imponible",
+        "Tipo IVA", "Cuota IVA", "Total", "Categoria", "Estado",
+        "Aprobado por", "Centro de coste", "Cuenta contable",
+    ])
+    for r in receipts:
+        writer.writerow([
+            r.date.strftime("%d/%m/%Y") if r.date else "",
+            (r.employee.nif if r.employee and r.employee.nif else ""),
+            r.project.code if r.project else "",
+            r.merchant or "",
+            f"{float(r.tax_base):.2f}".replace(".", ",") if r.tax_base else "",
+            f"{float(r.tax_rate):.2f}".replace(".", ",") if r.tax_rate else "",
+            f"{float(r.tax_amount):.2f}".replace(".", ",") if r.tax_amount else "",
+            f"{float(r.amount):.2f}".replace(".", ",") if r.amount else "",
+            r.category or "",
+            r.status or "",
+            r.approver_name or "",
+            "",  # Centro de coste - pendiente Lezama Q1
+            "",  # Cuenta contable - pendiente Lezama Q1
+        ])
+    output.seek(0)
+    filename = f"sap_gastos_{datetime.now().strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.post("/upload", response_model=ReceiptOut, status_code=201)
 async def upload_receipt(
     background_tasks: BackgroundTasks,

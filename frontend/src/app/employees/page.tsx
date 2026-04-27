@@ -71,7 +71,7 @@ function avatarBg(name: string) {
 }
 
 const CSV_TEMPLATE =
-  'name,email,department,role,monthly_budget\nJuan García,juan.garcia@lezama.es,Obras,employee,2000\n';
+  'name,email,department,role,monthly_budget,nif\nJuan García,juan.garcia@lezama.es,Obras,employee,2000,12345678A\n';
 
 function downloadTemplate() {
   const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
@@ -99,6 +99,7 @@ function AddEmployeeModal({ onClose, onCreated }: AddEmployeeModalProps) {
     department: '',
     role: 'employee',
     monthly_budget: '',
+    nif: '',
   });
 
   function set(field: string, value: string) {
@@ -119,6 +120,7 @@ function AddEmployeeModal({ onClose, onCreated }: AddEmployeeModalProps) {
         department: form.department.trim() || null,
         role: form.role,
         monthly_budget: form.monthly_budget ? parseFloat(form.monthly_budget) : null,
+        nif: form.nif.trim() || null,
       };
       const created = await api.post<Employee>('/employees', payload);
       toast.success(`Empleado ${created.name} creado`);
@@ -213,6 +215,20 @@ function AddEmployeeModal({ onClose, onCreated }: AddEmployeeModalProps) {
               onChange={(e) => set('monthly_budget', e.target.value)}
               placeholder="Sin límite"
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              NIF <span className="text-slate-500 font-normal">(para export SAP)</span>
+            </label>
+            <input
+              type="text"
+              value={form.nif}
+              onChange={(e) => set('nif', e.target.value.toUpperCase())}
+              placeholder="12345678A"
+              maxLength={20}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase"
             />
           </div>
 

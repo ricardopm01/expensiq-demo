@@ -104,6 +104,7 @@ async def bulk_import_employees(
         role = role_raw if role_raw in VALID_ROLES else "employee"
 
         department = (row.get("department") or "").strip() or None
+        nif = (row.get("nif") or "").strip().upper() or None
 
         monthly_budget: float | None = None
         budget_raw = (row.get("monthly_budget") or "").strip()
@@ -121,6 +122,7 @@ async def bulk_import_employees(
             department=department,
             role=role,
             monthly_budget=monthly_budget,
+            nif=nif,
         )
         db.add(employee)
         created += 1
@@ -169,6 +171,7 @@ def get_employee(employee_id: str, db: Session = Depends(get_db)):
         department=employee.department,
         role=employee.role,
         monthly_budget=float(employee.monthly_budget) if employee.monthly_budget else None,
+        nif=employee.nif,
         created_at=employee.created_at,
         total_spending=total_spending,
         receipt_count=len(receipts),

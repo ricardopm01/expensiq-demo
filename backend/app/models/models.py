@@ -29,6 +29,7 @@ class Employee(Base):
     department = Column(String(100))
     role = Column(String(20), nullable=False, default="employee")
     monthly_budget = Column(Numeric(10, 2))
+    nif = Column(String(20))  # Sprint 5B — for SAP CSV export
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 
     # Auth fields
