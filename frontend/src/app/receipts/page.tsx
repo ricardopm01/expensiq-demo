@@ -225,10 +225,10 @@ function ReceiptsPage() {
           )}
         </div>
         <div
-          className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all ${
+          className={`border-2 border-dashed rounded-2xl py-14 sm:py-10 px-6 sm:px-10 text-center cursor-pointer transition-all ${
             dragging
               ? 'border-indigo-500 bg-indigo-50/30'
-              : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
+              : 'border-indigo-300 sm:border-slate-200 bg-indigo-50/40 sm:bg-transparent hover:border-indigo-300 hover:bg-indigo-50/30'
           }`}
           onClick={() => !uploading && fileRef.current?.click()}
           onDragOver={(e) => {
@@ -252,12 +252,14 @@ function ReceiptsPage() {
             </div>
           ) : (
             <div>
-              <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-              <p className="text-sm font-semibold text-slate-600">
-                Arrastra tu recibo aqui
+              <Upload className="w-14 h-14 sm:w-10 sm:h-10 text-indigo-500 sm:text-slate-400 mx-auto mb-3" />
+              <p className="text-base sm:text-sm font-bold sm:font-semibold text-slate-700 sm:text-slate-600">
+                <span className="sm:hidden">Toca para sacar foto del recibo</span>
+                <span className="hidden sm:inline">Arrastra tu recibo aqui</span>
               </p>
               <p className="text-xs text-slate-400 mt-1">
-                o haz clic para seleccionar · JPG, PNG, PDF · max 10MB
+                <span className="sm:hidden">o subir desde galería · JPG, PNG, PDF</span>
+                <span className="hidden sm:inline">o haz clic para seleccionar · JPG, PNG, PDF · max 10MB</span>
               </p>
             </div>
           )}
@@ -265,6 +267,7 @@ function ReceiptsPage() {
             ref={fileRef}
             type="file"
             accept="image/*,.pdf"
+            capture="environment"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -273,6 +276,46 @@ function ReceiptsPage() {
           />
         </div>
       </Card>
+
+      {/* Sprint 5C — Mobile-only: últimos recibos del usuario como cards */}
+      <div className="sm:hidden space-y-3">
+        <h3 className="text-sm font-semibold text-slate-700 mt-2">Mis últimos recibos</h3>
+        {loading ? (
+          <Card className="p-6 text-center"><Spinner className="w-5 h-5 mx-auto text-indigo-500" /></Card>
+        ) : receipts.length === 0 ? (
+          <Card className="p-6 text-center text-sm text-slate-400">
+            Aún no has subido ningún recibo. Toca arriba para empezar.
+          </Card>
+        ) : (
+          receipts.slice(0, 5).map((r) => (
+            <Card
+              key={r.id}
+              className="p-3 cursor-pointer active:bg-slate-50"
+              onClick={() => setSelectedReceipt(r)}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {r.merchant || <span className="text-slate-400 italic font-normal">Procesando...</span>}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {fmt.date(r.date || r.upload_timestamp)}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-slate-800">
+                    {r.amount != null ? fmt.money(r.amount, r.currency) : '—'}
+                  </p>
+                  <div className="mt-1"><StatusBadge status={r.status} /></div>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Sprint 5C — Desktop view (filtros + tabla) — oculto en mobile */}
+      <div className="hidden sm:block space-y-5">
 
       {/* Excel Template — Employee view */}
       {isEmployee && <ExcelTemplateSection employeeId={currentEmployeeId} onImport={load} />}
@@ -558,6 +601,9 @@ function ReceiptsPage() {
           })}
         </DataTable>
       </Card>
+
+      </div>
+      {/* /Sprint 5C — Desktop wrapper */}
 
       {/* Receipt Detail Modal */}
       {selectedReceipt && (
