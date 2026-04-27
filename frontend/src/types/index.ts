@@ -7,6 +7,7 @@ export interface Employee {
   department: string | null;
   role: string;
   monthly_budget: number | null;
+  nif: string | null;
   is_active: boolean;
   created_at: string | null;
 }

@@ -1,43 +1,43 @@
 # ExpensIQ — Estado en vivo
 
 > Documento para Alejandro y Marcos. Actualizar al terminar trabajo o cambiar de fase.
-> Última actualización: **2026-04-27** por Ricardo (con Claude) — Sprint 5A pusheado.
+> Última actualización: **2026-04-27** por Ricardo (con Claude) — Sprint 5A mergeado, 5B y 5C esperando merge.
 
 ## Resumen ejecutivo
 
-Sprints 1, 1B, 2, 3 y 4 mergeados en `main`. **Sprint 5 en curso**: dividido en sub-PRs 5A / 5B / 5C. Sprint 5D (SMTP real) pospuesto hasta abrir cuenta SendGrid. Sin contrato firmado con Lezama: no tocamos producción ni abrimos cuentas de pago.
+Sprints 1, 1B, 2, 3, 4 y **5A mergeados** en `main`. **Sprint 5 casi completo en sub-PRs**: 5B y 5C abiertos esperando review/merge. Sprint 5D (SMTP real) pospuesto hasta abrir cuenta SendGrid. Sin contrato firmado con Lezama: no tocamos producción ni abrimos cuentas de pago.
 
 ## Ramas activas
 
 | Rama | Estado | PR | Notas |
 |---|---|---|---|
-| `main` | hasta `7610bbe` (Sprint 4 mergeado) | — | Estable. |
-| `feat/sprint5a-perfil-quincenas` | abierta, lista para review | **PR a abrir** | Card "Mi quincena actual" en `/profile` + endpoint `/periods/me/current-status`. |
-| `feat/sprint5b-export-sap-csv` | pendiente | — | Migración 0008 (Employee.nif) + endpoint `/receipts/export/csv-sap`. |
-| `feat/sprint5c-mobile-upload` | pendiente | — | Vista responsive `/receipts` <640px. |
+| `main` | hasta `3bab7bf` (Sprint 5A mergeado) | — | Estable. |
+| `feat/sprint5b-export-sap-csv` | rebased sobre main, esperando merge | **PR #16** | Migración 0010 (Employee.nif), endpoint `/receipts/export/csv-sap`, botón en UI. |
+| `feat/sprint5c-mobile-upload` | pusheada, esperando review | **PR #17** | `/receipts` responsive <640px, `capture="environment"`. |
 
-## Sprint 5A — Perfil empleado conectado a quincenas (rama actual)
+## Sub-PRs del Sprint 5 — resumen
 
-Ver `CAMBIOS_RAMA_FEAT_SPRINT5A.md` para el detalle completo.
+### Sprint 5A — Perfil empleado conectado a quincenas — MERGEADO (PR #15)
+Backend: `GET /api/v1/periods/me/current-status`. Frontend: `<MyPeriodCard />` en `/profile`. Sin migraciones.
+Detalle: `CAMBIOS_RAMA_FEAT_SPRINT5A.md`.
 
-**Resumen:**
-- Backend: nuevo endpoint `GET /api/v1/periods/me/current-status` que devuelve estado de la quincena del usuario logueado (rango, días restantes, review_status, review_note del admin si flagged, recuento de recibos rechazados).
-- Frontend: nuevo componente `<MyPeriodCard />` en `/profile` con 3 variantes visuales (pending/approved/flagged). Integrado como primera card de la página.
-- Sin cambios de modelo ni migraciones.
+### Sprint 5B — Export CSV SAP + NIF (PR #16, rama actual)
+Migración `0010_add_employee_nif.py`. Endpoint `GET /receipts/export/csv-sap` con 13 columnas (BOM UTF-8, separador `;`). NIF, Centro de coste y Cuenta contable vacíos hasta respuestas Lezama. Botón "Exportar SAP" para no-empleados.
+Detalle: `CAMBIOS_RAMA_FEAT_SPRINT5B.md`.
 
-**Para Alejandro (revisión):**
-- `backend/app/routes/periods.py:216-280` — verificar uso correcto de `get_current_user` y filtro `Receipt.employee_id` en `flagged_receipts_count`.
-- `frontend/src/app/profile/page.tsx` — verificar que el link `/receipts?status=rejected` funciona y la card amber aparece cuando se simula `review_status='flagged'` desde la vista admin de periodos.
+### Sprint 5C — Móvil responsive (PR #17)
+Sólo `frontend/src/app/receipts/page.tsx`. En `<640px`: oculta filtros + tabla, muestra upload card prominente + 5 últimos recibos como cards. `capture="environment"` en input file. Sin cambios backend.
+Detalle: `CAMBIOS_RAMA_FEAT_SPRINT5C.md`.
 
-## Sprint 5 — desglose de sub-PRs
+## Sprint 5 — desglose
 
 Spec en `AUDITORIA_PLAN_MEJORA_2026-04-17.md` sección "Sprint 5". Decisión Ricardo (2026-04-27): split en 3 PRs independientes en lugar de uno monolítico.
 
 | Sub-PR | Estado | Alcance |
 |---|---|---|
-| **5A** | rama pusheada, PR a abrir | Perfil empleado conectado a quincenas |
-| **5B** | pendiente | Export CSV SAP preliminar (13 columnas, NIF nullable, Centro coste/Cuenta contable vacíos hasta Lezama) + migración Alembic 0008 |
-| **5C** | pendiente | `/receipts` responsive: <640px solo botón upload + cards últimos 5 recibos. `capture="environment"` en input file |
+| **5A** | ✅ MERGEADO (PR #15) | Perfil empleado conectado a quincenas |
+| **5B** | rebased, listo para merge (PR #16) | Export CSV SAP preliminar + migración 0010 |
+| **5C** | pusheado, esperando review (PR #17) | `/receipts` responsive <640px |
 | **5D** | bloqueado | SMTP real (SendGrid en Railway). Bloqueado hasta que Ricardo abra cuenta SendGrid free. |
 
 ## Producción (Railway + Vercel) — bloqueado
@@ -50,18 +50,17 @@ Sección 7 del `AUDITORIA_PLAN_MEJORA_2026-04-17.md`. Sin respuesta, NO implemen
 - Centro de coste, retenciones IRPF, formato exacto SAP (Q1, Q2, Q3, Q5).
 - Estructura códigos obra (Q6), libro IVA (Q11), splits multi-obra (Q7).
 - Política gastos formal (Q9), delegaciones aprobación (Q10).
+- App nativa móvil vs web responsive (Q13), soporte offline en obra (Q14).
 - Histórico a migrar (Q15).
-- Primera admin de producción (Q16).
+- Primera admin de producción + NIFs reales (Q16).
 
-Sprint 5B deja **placeholders vacíos** en el CSV SAP para Centro de coste y Cuenta contable, y NIF empleado, hasta que Lezama responda.
-
-Cuando Lezama responda algo, mover a sección **Respondidas** del audit doc con fecha.
+Sprint 5B deja **placeholders vacíos** en el CSV SAP para Centro de coste, Cuenta contable y NIF, hasta que Lezama responda.
 
 ## Convenciones del equipo (recordatorio)
 
 - **CLAUDE.md** = única fuente de verdad para arquitectura/stack/convenciones.
-- **CAMBIOS_RAMA_FEAT_*.md** = documento por sprint en cada rama, descripción humana de qué se hizo y por qué (no solo el qué).
-- **STATUS.md** (este archivo) = estado en vivo del proyecto, qué hay en cada rama, próximos pasos. Actualizar al cambiar fase.
+- **CAMBIOS_RAMA_FEAT_*.md** = documento por sprint en cada rama, descripción humana de qué se hizo y por qué.
+- **STATUS.md** (este archivo) = estado en vivo del proyecto. Actualizar al cambiar fase.
 - Rama por feature, PR a `main` con review de Alejandro, merge por Ricardo.
 - No crear documentos supletorios fuera de estos tres patrones — actualizar lo existente.
 

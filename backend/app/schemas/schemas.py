@@ -15,6 +15,7 @@ class EmployeeCreate(BaseModel):
     department: Optional[str] = None
     role: str = "employee"
     monthly_budget: Optional[float] = None
+    nif: Optional[str] = None
 
 
 class EmployeeUpdate(BaseModel):
@@ -23,6 +24,7 @@ class EmployeeUpdate(BaseModel):
     department: Optional[str] = None
     role: Optional[str] = None
     monthly_budget: Optional[float] = None
+    nif: Optional[str] = None
 
 
 class EmployeeOut(BaseModel):
@@ -32,6 +34,7 @@ class EmployeeOut(BaseModel):
     department: Optional[str] = None
     role: str
     monthly_budget: Optional[float] = None
+    nif: Optional[str] = None
     is_active: bool = True
     created_at: Optional[datetime] = None
 
@@ -226,6 +229,7 @@ class EmployeeDetailOut(BaseModel):
     department: Optional[str] = None
     role: str
     monthly_budget: Optional[float] = None
+    nif: Optional[str] = None
     created_at: Optional[datetime] = None
     total_spending: float = 0.0
     receipt_count: int = 0
