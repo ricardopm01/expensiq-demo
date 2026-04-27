@@ -326,6 +326,19 @@ export interface EmployeePeriodStatus {
   review_note?: string | null;
 }
 
+export interface MyCurrentPeriodStatus {
+  period_id: string;
+  period_start: string;
+  period_end: string;
+  days_remaining: number;
+  period_status: 'open' | 'closed';
+  review_status: 'pending' | 'approved' | 'flagged';
+  review_note: string | null;
+  reviewed_by_name: string | null;
+  reviewed_at: string | null;
+  flagged_receipts_count: number;
+}
+
 export interface ReviewSummary {
   period_id: string;
   total: number;

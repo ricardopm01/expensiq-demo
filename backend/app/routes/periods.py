@@ -41,6 +41,19 @@ class EmployeePeriodStatusOut(BaseModel):
     review_note: Optional[str] = None
 
 
+class MyCurrentPeriodStatusOut(BaseModel):
+    period_id: str
+    period_start: date
+    period_end: date
+    days_remaining: int
+    period_status: str  # open | closed
+    review_status: str  # pending | approved | flagged
+    review_note: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    flagged_receipts_count: int = 0
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _get_or_create_current_period(db: Session) -> Period:
@@ -227,6 +240,58 @@ def can_i_submit(
         "period_end": period.end_date.isoformat(),
         "period_status": period.status,
     }
+
+
+@router.get("/me/current-status", response_model=MyCurrentPeriodStatusOut)
+def my_current_period_status(
+    db: Session = Depends(get_db),
+    current_user: Employee = Depends(get_current_user),
+):
+    """Sprint 5A — empleado ve su quincena actual con estado de revisión.
+
+    Devuelve rango, días restantes, estado del periodo, y si la admin ya
+    revisó (approved/flagged) con la nota.
+    """
+    period = _get_or_create_current_period(db)
+    today = date.today()
+    days_remaining = max(0, (period.end_date - today).days)
+
+    eps = db.query(EmployeePeriodStatus).filter(
+        EmployeePeriodStatus.employee_id == current_user.id,
+        EmployeePeriodStatus.period_id == period.id,
+    ).first()
+
+    review_status = eps.review_status if eps else "pending"
+    review_note = eps.review_note if eps else None
+    reviewed_at = eps.reviewed_at if eps else None
+    reviewed_by_name = None
+    if eps and eps.reviewed_by:
+        reviewer = db.query(Employee).filter(Employee.id == eps.reviewed_by).first()
+        reviewed_by_name = reviewer.name if reviewer else None
+
+    flagged_count = (
+        db.query(Receipt)
+        .filter(
+            Receipt.employee_id == current_user.id,
+            Receipt.date >= period.start_date,
+            Receipt.date <= period.end_date,
+            Receipt.status == "rejected",
+        )
+        .count()
+    )
+
+    return MyCurrentPeriodStatusOut(
+        period_id=str(period.id),
+        period_start=period.start_date,
+        period_end=period.end_date,
+        days_remaining=days_remaining,
+        period_status=period.status,
+        review_status=review_status,
+        review_note=review_note,
+        reviewed_by_name=reviewed_by_name,
+        reviewed_at=reviewed_at,
+        flagged_receipts_count=flagged_count,
+    )
 
 
 # ── Review schemas ──────────────────────────────────────────────────────────
