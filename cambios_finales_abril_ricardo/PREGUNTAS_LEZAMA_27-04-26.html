@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Preguntas Lezama 27-04-26</title>
+<style>
+@page { size: A4; margin: 18mm 16mm; }
+body {
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: #1a1a1a;
+  max-width: 720px;
+  margin: 0 auto;
+}
+h1 { font-size: 18pt; color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 6px; margin-top: 0; }
+h2 { font-size: 14pt; color: #1e40af; margin-top: 24px; border-left: 4px solid #1e40af; padding-left: 10px; }
+h3 { font-size: 12pt; color: #333; margin-top: 18px; }
+strong { color: #111; }
+ul { padding-left: 20px; }
+li { margin: 4px 0; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; }
+th { background: #f0f4ff; }
+blockquote { border-left: 3px solid #1e40af; padding: 8px 14px; background: #f8fafc; margin: 16px 0; color: #374151; font-style: italic; }
+hr { border: none; border-top: 1px solid #e5e7eb; margin: 22px 0; }
+input[type="checkbox"] { transform: scale(1.3); margin-right: 6px; }
+.task-list-item { list-style: none; }
+.task-list-item input { margin-right: 8px; }
+</style>
+</head>
+<body>
+<h1>Preguntas pendientes — ExpensIQ producción</h1>
+<p><strong>Fecha:</strong> 27-04-26
+<strong>Para:</strong> Dirección de Lezama
+<strong>De:</strong> Edrai Solutions</p>
+<p>Para arrancar ExpensIQ en producción necesitamos cerrar 16 decisiones. Son cosas que solo vosotros podéis decidir. Mientras no las tengamos, las dejamos con valores por defecto que probablemente habrá que rehacer.</p>
+<p>Cada pregunta tiene casillas marcables. Si tenéis alguna duda o ninguna opción encaja, escribid en "Otra".</p>
+<hr />
+<h2>1. Integración con SAP</h2>
+<p><strong>1.1 — ¿Cómo conectamos ExpensIQ con vuestro SAP?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Conexión automática (vosotros nos dais accesos a SAP y los gastos llegan solos)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Vuestra contabilidad descarga un archivo CSV desde ExpensIQ y lo sube a SAP a mano
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Otra: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>1.2 — ¿Nos podéis pasar un ejemplo del archivo que usa hoy vuestra contabilidad para meter gastos en SAP?</strong> (un Excel o CSV, da igual el formato)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, lo enviamos
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No usamos ningún archivo, lo meten manualmente
+- Adjuntar / responder: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>1.3 — Centro de coste y cuenta contable de cada gasto:</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Cada empleado tiene siempre el mismo centro de coste asignado
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Depende de la obra en la que esté trabajando ese día
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> La admin lo asigna manualmente al revisar el gasto
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Otra: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<hr />
+<h2>2. Subcontratistas y autónomos</h2>
+<p><strong>2.1 — Las facturas de subcontratistas (autónomos y empresas externas):</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Las sube la admin desde la oficina cuando llegan
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Las suben los propios subcontratistas desde su móvil
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Mezclado, depende del subcontratista
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No las gestionamos en ExpensIQ
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Otra: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>2.2 — ¿Necesitáis que ExpensIQ gestione retenciones IRPF de autónomos?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, lo lleva la gestoría aparte</p>
+<p><strong>2.3 — ¿Necesitáis que ExpensIQ genere los modelos 347 y 349 para Hacienda?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, lo lleva la gestoría</p>
+<hr />
+<h2>3. Obras</h2>
+<p><strong>3.1 — ¿Qué formato tienen los códigos de obra hoy?</strong> (ejemplo real, por favor)
+- Respuesta: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>3.2 — ¿Los datos de las obras (fechas, responsable, cliente, presupuesto) los tenéis ya en SAP o se crean en ExpensIQ desde cero?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Ya están en SAP, los importamos al arrancar
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Se crean nuevos en ExpensIQ
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Otra: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>3.3 — ¿Un mismo gasto se puede repartir entre varias obras?</strong> (ej. una compra de material que va a 2 obras a la vez)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, hay que poder repartir el importe
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, cada gasto va a una sola obra</p>
+<hr />
+<h2>4. Política de aprobaciones</h2>
+<p><strong>4.1 — Os proponemos estos umbrales por defecto. ¿Os sirven?</strong></p>
+<table>
+<thead>
+<tr>
+<th>Importe</th>
+<th>Aprueba</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Menos de 100€</td>
+<td>Auto-aprobado</td>
+</tr>
+<tr>
+<td>100€ a 500€</td>
+<td>Manager</td>
+</tr>
+<tr>
+<td>Más de 500€</td>
+<td>Director</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, perfecto</li>
+<li><span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Cambiar (especificar): <strong><em>_</em></strong><strong><em>_</em></strong>_</li>
+</ul>
+<p><strong>4.2 — ¿Tenéis un documento de política de gastos?</strong> (máximos por categoría, dietas, kilometraje, qué no se reembolsa)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, lo enviamos para parametrizarlo
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No existe formal, lo decidimos contigo</p>
+<p><strong>4.3 — Si un manager o director está de vacaciones o baja, ¿quién aprueba en su lugar?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Hay suplentes fijos asignados (especificar): <strong><em>_</em></strong><strong><em>_</em></strong><em>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sube automáticamente al siguiente nivel
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Espera a que vuelva
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Otra: <strong><em>_</em></strong><strong><em>_</em></strong></em></p>
+<hr />
+<h2>5. IVA y gestoría</h2>
+<p><strong>5.1 — ¿Necesitáis exportar el libro de IVA soportado para la gestoría desde ExpensIQ?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, en formato Excel
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, en formato XML / SII (envío directo a Hacienda)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, lo lleva la gestoría con sus medios</p>
+<p><strong>5.2 — ¿ExpensIQ debe distinguir factura completa vs ticket simplificado?</strong> (el desglose de IVA solo es obligatorio en facturas)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, importante
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, tratar todo igual</p>
+<hr />
+<h2>6. Uso desde el móvil en obra</h2>
+<p><strong>6.1 — De vuestros 150 empleados, ¿cuántos van a subir recibos desde el móvil en obra?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Casi todos (más de 100)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> La mitad (entre 50 y 100)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Pocos (menos de 50)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Solo la oficina, nadie desde el móvil</p>
+<p><strong>6.2 — ¿Os vale con que sea una web que se ve bien en el móvil, o necesitáis app nativa descargable de la App Store / Google Play?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Web responsive (más rápido, sin instalación)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> App nativa (mejor UX, requiere desarrollo extra)
+- Comentario: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>6.3 — ¿Hay obras sin cobertura de móvil donde el operario tenga que sacar la foto y subirla luego al volver a la oficina?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, pasa con frecuencia
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Sí, pero es raro
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> No, todas tienen cobertura</p>
+<hr />
+<h2>7. Migración y arranque</h2>
+<p><strong>7.1 — ¿Cuánto histórico de gastos queréis migrar a ExpensIQ al arrancar?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Solo desde la fecha de arranque (no migramos nada)
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Último año
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Últimos 2-3 años
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Todo lo que tengamos</p>
+<p><strong>7.2 — Si migramos histórico, ¿en qué formato lo tenéis hoy?</strong> (Excel, varios Excel, en SAP, etc.)
+- Respuesta: <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<p><strong>7.3 — ¿Quién será la admin principal de ExpensIQ en producción?</strong> (la persona que aprueba, revisa y configura)
+- Nombre: <strong><em>_</em></strong><strong><em>_</em></strong><em>
+- Email: <strong><em>_</em></strong><strong><em>_</em></strong></em></p>
+<p><strong>7.4 — ¿Habrá más de una persona con rol admin completo o gerentes intermedios?</strong>
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Solo una admin
+- <span style="display:inline-block;width:13px;height:13px;border:1.5px solid #555;vertical-align:middle;margin-right:6px;"></span> Una admin + N gerentes (especificar nombres y roles): <strong><em>_</em></strong><strong><em>_</em></strong>_</p>
+<hr />
+<h2>Espacio para dudas o comentarios</h2>
+<hr />
+<hr />
+<hr />
+<hr />
+<blockquote>
+<p>Cuando tengamos vuestras respuestas, completamos el sistema con datos reales y dejamos ExpensIQ listo para producción. Sin estas respuestas seguimos avanzando con valores por defecto que tocará rehacer después.</p>
+</blockquote>
+</body>
+</html>
