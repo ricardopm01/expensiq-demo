@@ -92,6 +92,7 @@ export interface ActionToday {
   transactions_unmatched: number;
   period_pending_employees: number;
   period_pending_label: string;
+  period_total_employees: number;
   alerts_urgent: number;
   period_id: string | null;
   period_status: 'open' | 'closed' | null;
@@ -333,6 +334,7 @@ export interface MyCurrentPeriodStatus {
   period_end: string;
   days_remaining: number;
   period_status: 'open' | 'closed';
+  has_submitted: boolean;
   review_status: 'pending' | 'approved' | 'flagged';
   review_note: string | null;
   reviewed_by_name: string | null;

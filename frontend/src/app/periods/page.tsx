@@ -182,22 +182,23 @@ export default function PeriodsPage() {
     async (period: Period, employees: Employee[]): Promise<EmployeePeriodStatus[]> => {
       const onlyEmployees = employees.filter(e => e.role === 'employee');
 
-      // Fetch receipts + review statuses in parallel
-      const [receiptResults, reviewStatuses] = await Promise.all([
+      const periodStart = new Date(period.start_date);
+      const periodEnd = new Date(period.end_date);
+      periodEnd.setHours(23, 59, 59, 999);
+
+      // Fetch receipts + EPS statuses in parallel
+      const [receiptResults, epsStatuses] = await Promise.all([
         Promise.allSettled(
           onlyEmployees.map(e =>
             api.get<Receipt[]>(`/receipts?employee_id=${e.id}`).catch(() => [] as Receipt[])
           )
         ),
-        api.get<{ employee_id: string; review_status: string; review_note?: string }[]>(
+        api.get<{ employee_id: string; status: string; review_status: string; review_note?: string }[]>(
           `/periods/${period.id}/employee-statuses`
         ).catch(() => []),
       ]);
 
-      const reviewMap = new Map(reviewStatuses.map(r => [r.employee_id, r]));
-      const periodStart = new Date(period.start_date);
-      const periodEnd = new Date(period.end_date);
-      periodEnd.setHours(23, 59, 59, 999);
+      const epsMap = new Map(epsStatuses.map(r => [r.employee_id, r]));
 
       return onlyEmployees.map((emp, idx) => {
         const result = receiptResults[idx];
@@ -207,13 +208,15 @@ export default function PeriodsPage() {
           const d = new Date(r.date);
           return d >= periodStart && d <= periodEnd;
         });
-        const rev = reviewMap.get(emp.id);
+        const eps = epsMap.get(emp.id);
+        // has_submitted = employee explicitly clicked "Enviar mis gastos" (EPS.status = closed)
+        const has_submitted = eps?.status === 'closed';
         return {
           employee: emp,
           receipt_count: periodReceipts.length,
-          has_submitted: periodReceipts.length > 0,
-          review_status: (rev?.review_status as 'pending' | 'approved' | 'flagged') ?? 'pending',
-          review_note: rev?.review_note ?? null,
+          has_submitted,
+          review_status: (eps?.review_status as 'pending' | 'approved' | 'flagged') ?? 'pending',
+          review_note: eps?.review_note ?? null,
         };
       });
     },
@@ -394,19 +397,35 @@ export default function PeriodsPage() {
 
           {/* Stats row — different content depending on period state */}
           {!isClosed && employeeStatuses.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-slate-800 grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <p className="text-xl font-bold text-slate-100">{employeeStatuses.length}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Empleados</p>
+            <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-xl font-bold text-slate-100">{employeeStatuses.length}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Empleados</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-emerald-400">{submittedCount}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Han enviado</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-bold text-amber-400">{pendingCount}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Pendientes</p>
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-emerald-400">{submittedCount}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Con recibos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-amber-400">{pendingCount}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Sin recibos</p>
-              </div>
+              {employeeStatuses.length > 0 && (
+                <div>
+                  <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+                    <span>Progreso de envíos</span>
+                    <span>{submittedCount}/{employeeStatuses.length}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                      style={{ width: `${(submittedCount / employeeStatuses.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -514,15 +533,20 @@ export default function PeriodsPage() {
 
                       {/* Submission status */}
                       <td className="px-5 py-3.5">
-                        {has_submitted ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                            <CheckCircle className="w-3 h-3" /> Enviado
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                            <AlertCircle className="w-3 h-3" /> Sin recibos
-                          </span>
-                        )}
+                        <div className="space-y-1">
+                          {has_submitted ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                              <CheckCircle className="w-3 h-3" /> Enviado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                              <AlertCircle className="w-3 h-3" /> Sin enviar
+                            </span>
+                          )}
+                          {receipt_count > 0 && (
+                            <p className="text-[11px] text-slate-500 pl-0.5">{receipt_count} recibo{receipt_count !== 1 ? 's' : ''}</p>
+                          )}
+                        </div>
                       </td>
 
                       {/* Review status — only when closed */}

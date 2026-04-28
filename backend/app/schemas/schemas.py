@@ -178,6 +178,7 @@ class ActionTodayOut(BaseModel):
     transactions_unmatched: int
     period_pending_employees: int
     period_pending_label: str  # "sin enviar recibos" | "sin revisar" | ""
+    period_total_employees: int = 0
     alerts_urgent: int
     period_id: Optional[UUID] = None
     period_status: Optional[str] = None  # "open" | "closed" | None

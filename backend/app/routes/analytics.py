@@ -220,6 +220,7 @@ def get_action_today(db: Session = Depends(get_db)):
         transactions_unmatched=transactions_unmatched,
         period_pending_employees=period_pending_employees,
         period_pending_label=period_pending_label,
+        period_total_employees=len(active_employees) if period else 0,
         alerts_urgent=alerts_urgent,
         period_id=period_id,
         period_status=period_status,
