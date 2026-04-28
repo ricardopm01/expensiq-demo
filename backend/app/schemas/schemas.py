@@ -47,12 +47,14 @@ class ProjectCreate(BaseModel):
     code: str
     name: str
     description: Optional[str] = None
+    budget: Optional[float] = None
 
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     active: Optional[bool] = None
+    budget: Optional[float] = None
 
 
 class ProjectOut(BaseModel):
@@ -60,10 +62,31 @@ class ProjectOut(BaseModel):
     code: str
     name: str
     description: Optional[str] = None
+    budget: Optional[float] = None
     active: bool = True
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class ProjectCategoryBreakdown(BaseModel):
+    category: str
+    total_amount: float
+    receipt_count: int
+
+
+class ProjectDetailOut(BaseModel):
+    project_id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    budget: Optional[float] = None
+    total_spending: float
+    receipt_count: int
+    approved_count: int
+    pending_count: int
+    utilization_pct: Optional[float] = None
+    category_breakdown: list[ProjectCategoryBreakdown] = []
 
 
 # ── Receipts ──────────────────────────────────────────────────────
@@ -301,6 +324,7 @@ class SpendingByProjectOut(BaseModel):
     project_id: UUID
     code: str
     name: str
+    budget: Optional[float] = None
     total_spending: float
     receipt_count: int
 

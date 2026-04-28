@@ -50,6 +50,7 @@ class Project(Base):
     code = Column(String(100), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text)
+    budget = Column(Numeric(12, 2))  # Sprint 6 — presupuesto asignado (nullable)
     active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
 

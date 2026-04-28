@@ -905,22 +905,28 @@ function AdminDashboard() {
                 width={90}
               />
               <Tooltip
-                formatter={(value, _name, props) => [
-                  `${fmt.money(Number(value))} · ${(props.payload as SpendingByProject).receipt_count} recibos`,
-                  (props.payload as SpendingByProject).name,
-                ]}
+                formatter={(value, _name, props) => {
+                  const d = props.payload as SpendingByProject;
+                  const budgetStr = d.budget ? ` / ${fmt.money(d.budget)} ppto` : '';
+                  return [`${fmt.money(Number(value))}${budgetStr} · ${d.receipt_count} recibos`, d.name];
+                }}
                 contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
               />
               <Bar
                 dataKey="total_spending"
                 radius={[0, 8, 8, 0]}
-                fill="#6366f1"
                 cursor="pointer"
                 onClick={(_data, index) => {
                   const d = spendingByProject[index];
-                  if (d?.project_id) router.push(`/receipts?project_id=${d.project_id}`);
+                  if (d?.project_id) router.push(`/projects/${d.project_id}`);
                 }}
-              />
+              >
+                {spendingByProject.map((d, i) => {
+                  const pct = d.budget && d.budget > 0 ? d.total_spending / d.budget : null;
+                  const color = pct == null ? '#6366f1' : pct >= 1 ? '#ef4444' : pct >= 0.8 ? '#f97316' : '#10b981';
+                  return <Cell key={i} fill={color} />;
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </Card>

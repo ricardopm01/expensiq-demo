@@ -25,6 +25,8 @@ from app.schemas.schemas import (
     EmployeeCategoryBreakdownOut,
     ForecastOut,
     MonthlyHistoryPoint,
+    ProjectCategoryBreakdown,
+    ProjectDetailOut,
     ReceiptSummary,
     SpendingByProjectOut,
     SummaryOut,
@@ -369,12 +371,13 @@ def get_spending_by_project(db: Session = Depends(get_db)):
             Project.id.label("project_id"),
             Project.code,
             Project.name,
+            Project.budget,
             func.coalesce(func.sum(Receipt.amount), 0).label("total_spending"),
             func.count(Receipt.id).label("receipt_count"),
         )
         .join(Receipt, Receipt.project_id == Project.id, isouter=True)
         .filter(Project.active == True)
-        .group_by(Project.id, Project.code, Project.name)
+        .group_by(Project.id, Project.code, Project.name, Project.budget)
         .order_by(func.coalesce(func.sum(Receipt.amount), 0).desc())
         .all()
     )
@@ -383,11 +386,63 @@ def get_spending_by_project(db: Session = Depends(get_db)):
             project_id=r.project_id,
             code=r.code,
             name=r.name,
+            budget=float(r.budget) if r.budget is not None else None,
             total_spending=float(r.total_spending),
             receipt_count=r.receipt_count,
         )
         for r in results
     ]
+
+
+@router.get("/projects/{project_id}", response_model=ProjectDetailOut)
+def get_project_detail(project_id: str, db: Session = Depends(get_db)):
+    """KPIs + category breakdown for a single project (obra)."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    receipts = db.query(Receipt).filter(Receipt.project_id == project_id).all()
+
+    total_spending = sum(float(r.amount) for r in receipts if r.amount is not None)
+    receipt_count = len(receipts)
+    approved_count = sum(1 for r in receipts if r.status == "approved")
+    pending_count = sum(1 for r in receipts if r.status in ("pending", "review"))
+
+    utilization_pct: Optional[float] = None
+    if project.budget and float(project.budget) > 0:
+        utilization_pct = round(total_spending / float(project.budget) * 100, 1)
+
+    # Category breakdown
+    cat_map: dict[str, dict] = {}
+    for r in receipts:
+        cat = r.category or "other"
+        if cat not in cat_map:
+            cat_map[cat] = {"total_amount": 0.0, "receipt_count": 0}
+        cat_map[cat]["total_amount"] += float(r.amount) if r.amount else 0.0
+        cat_map[cat]["receipt_count"] += 1
+
+    category_breakdown = [
+        ProjectCategoryBreakdown(
+            category=cat,
+            total_amount=round(vals["total_amount"], 2),
+            receipt_count=vals["receipt_count"],
+        )
+        for cat, vals in sorted(cat_map.items(), key=lambda x: -x[1]["total_amount"])
+    ]
+
+    return ProjectDetailOut(
+        project_id=project.id,
+        code=project.code,
+        name=project.name,
+        description=project.description,
+        budget=float(project.budget) if project.budget is not None else None,
+        total_spending=round(total_spending, 2),
+        receipt_count=receipt_count,
+        approved_count=approved_count,
+        pending_count=pending_count,
+        utilization_pct=utilization_pct,
+        category_breakdown=category_breakdown,
+    )
 
 
 @router.get("/employee/{employee_id}/categories", response_model=list[EmployeeCategoryBreakdownOut])
