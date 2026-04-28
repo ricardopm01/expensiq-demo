@@ -17,6 +17,7 @@ export interface Project {
   code: string;
   name: string;
   description: string | null;
+  budget: number | null;
   active: boolean;
   created_at: string | null;
 }
@@ -305,8 +306,29 @@ export interface SpendingByProject {
   project_id: string;
   code: string;
   name: string;
+  budget: number | null;
   total_spending: number;
   receipt_count: number;
+}
+
+export interface ProjectCategoryBreakdown {
+  category: string;
+  total_amount: number;
+  receipt_count: number;
+}
+
+export interface ProjectDetail {
+  project_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  budget: number | null;
+  total_spending: number;
+  receipt_count: number;
+  approved_count: number;
+  pending_count: number;
+  utilization_pct: number | null;
+  category_breakdown: ProjectCategoryBreakdown[];
 }
 
 // ── Periods ────────────────────────────────────────────────────────
