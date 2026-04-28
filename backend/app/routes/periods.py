@@ -47,6 +47,7 @@ class MyCurrentPeriodStatusOut(BaseModel):
     period_end: date
     days_remaining: int
     period_status: str  # open | closed
+    has_submitted: bool = False  # employee explicitly sent their expenses
     review_status: str  # pending | approved | flagged
     review_note: Optional[str] = None
     reviewed_by_name: Optional[str] = None
@@ -280,18 +281,54 @@ def my_current_period_status(
         .count()
     )
 
+    has_submitted = eps is not None and eps.status == "closed"
+
     return MyCurrentPeriodStatusOut(
         period_id=str(period.id),
         period_start=period.start_date,
         period_end=period.end_date,
         days_remaining=days_remaining,
         period_status=period.status,
+        has_submitted=has_submitted,
         review_status=review_status,
         review_note=review_note,
         reviewed_by_name=reviewed_by_name,
         reviewed_at=reviewed_at,
         flagged_receipts_count=flagged_count,
     )
+
+
+@router.post("/me/submit")
+def submit_my_period(
+    db: Session = Depends(get_db),
+    current_user: Employee = Depends(get_current_user),
+):
+    """Employee marks their expenses as sent for the current period."""
+    period = _get_or_create_current_period(db)
+    if not _employee_can_submit(db, current_user, period):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El periodo está cerrado. Contacta con la administración para reabrirlo.",
+        )
+
+    eps = db.query(EmployeePeriodStatus).filter(
+        EmployeePeriodStatus.employee_id == current_user.id,
+        EmployeePeriodStatus.period_id == period.id,
+    ).first()
+
+    if eps:
+        eps.status = "closed"
+    else:
+        eps = EmployeePeriodStatus(
+            id=uuid.uuid4(),
+            employee_id=current_user.id,
+            period_id=period.id,
+            status="closed",
+        )
+        db.add(eps)
+
+    db.commit()
+    return {"status": "submitted", "period_id": str(period.id)}
 
 
 # ── Review schemas ──────────────────────────────────────────────────────────

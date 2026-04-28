@@ -18,6 +18,7 @@ import {
   CalendarClock,
   AlertTriangle,
   CheckCheck,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -55,10 +56,24 @@ function avatarBg(name: string) {
   return AVATAR_COLORS[(name ? name.charCodeAt(0) : 0) % AVATAR_COLORS.length];
 }
 
-function MyPeriodCard({ data }: { data: MyCurrentPeriodStatus }) {
-  const { period_status, review_status, review_note, reviewed_by_name, reviewed_at, days_remaining, period_start, period_end, flagged_receipts_count } = data;
+function MyPeriodCard({
+  data,
+  onSubmit,
+  submitting,
+}: {
+  data: MyCurrentPeriodStatus;
+  onSubmit: () => void;
+  submitting: boolean;
+}) {
+  const {
+    period_status, has_submitted, review_status, review_note,
+    reviewed_by_name, reviewed_at, days_remaining,
+    period_start, period_end, flagged_receipts_count,
+  } = data;
   const range = `${fmt.date(period_start)} – ${fmt.date(period_end)}`;
+  const isOpen = period_status === 'open';
 
+  // State: incidencia
   if (review_status === 'flagged') {
     return (
       <Card className="p-5 border-l-4 border-amber-500 bg-amber-50/60">
@@ -67,15 +82,15 @@ function MyPeriodCard({ data }: { data: MyCurrentPeriodStatus }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-amber-900">Quincena con incidencia</h3>
-              <span className="text-xs text-amber-700">{range}</span>
+              <span className="text-xs text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">{range}</span>
             </div>
             {review_note && (
-              <p className="text-sm text-amber-900 mt-2 leading-relaxed">
+              <p className="text-sm text-amber-900 mt-2 leading-relaxed bg-amber-100/60 rounded-lg p-3">
                 <span className="font-semibold">Nota de la admin:</span> {review_note}
               </p>
             )}
             {reviewed_by_name && reviewed_at && (
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-amber-700 mt-2">
                 Marcada por {reviewed_by_name} · {fmt.date(reviewed_at)}
               </p>
             )}
@@ -93,13 +108,14 @@ function MyPeriodCard({ data }: { data: MyCurrentPeriodStatus }) {
     );
   }
 
+  // State: aprobado
   if (review_status === 'approved') {
     return (
       <Card className="p-5 border-l-4 border-emerald-500 bg-emerald-50/60">
         <div className="flex items-start gap-3">
           <CheckCheck className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-emerald-900">Quincena aprobada</h3>
+            <h3 className="text-sm font-bold text-emerald-900">Quincena aprobada ✓</h3>
             <p className="text-xs text-emerald-700 mt-0.5">{range}</p>
             {reviewed_by_name && reviewed_at && (
               <p className="text-xs text-emerald-700 mt-1">
@@ -112,27 +128,75 @@ function MyPeriodCard({ data }: { data: MyCurrentPeriodStatus }) {
     );
   }
 
-  // pending: período abierto en curso, o cerrado sin revisar
-  const isOpen = period_status === 'open';
+  // State: cerrado esperando revisión
+  if (!isOpen) {
+    return (
+      <Card className="p-5 border-l-4 border-slate-300">
+        <div className="flex items-start gap-3">
+          <CalendarClock className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-bold text-slate-700">Quincena cerrada — pendiente de revisión</h3>
+            <p className="text-xs text-slate-500 mt-0.5">{range}</p>
+            <p className="text-sm text-slate-500 mt-2">La admin revisará tus recibos en breve.</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // State: abierto + ya enviado
+  if (has_submitted) {
+    return (
+      <Card className="p-5 border-l-4 border-indigo-400 bg-indigo-50/40">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3 min-w-0">
+            <CheckCircle className="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-slate-800">Gastos enviados</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{range}</p>
+              <p className="text-sm text-slate-600 mt-1.5">
+                Has enviado tus gastos. Puedes seguir añadiendo recibos hasta que la admin cierre el periodo.
+              </p>
+            </div>
+          </div>
+          <span className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+            <CheckCircle className="w-3 h-3" /> Enviado
+          </span>
+        </div>
+        {days_remaining > 0 && (
+          <p className="text-xs text-slate-400 mt-3">
+            Cierre en <span className="font-semibold text-slate-600">{days_remaining}</span> día{days_remaining !== 1 ? 's' : ''}
+          </p>
+        )}
+      </Card>
+    );
+  }
+
+  // State: abierto + pendiente de enviar
+  const urgent = days_remaining <= 2;
   return (
-    <Card className="p-5">
+    <Card className={`p-5 border-l-4 ${urgent ? 'border-amber-400 bg-amber-50/30' : 'border-indigo-200'}`}>
       <div className="flex items-start gap-3">
-        <CalendarClock className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
+        <CalendarClock className={`w-5 h-5 flex-shrink-0 mt-0.5 ${urgent ? 'text-amber-500' : 'text-indigo-500'}`} />
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-bold text-slate-800">
-            {isOpen ? 'Quincena en curso' : 'Quincena cerrada — pendiente de revisión'}
-          </h3>
+          <h3 className="text-sm font-bold text-slate-800">Quincena en curso</h3>
           <p className="text-xs text-slate-500 mt-0.5">{range}</p>
-          {isOpen && (
-            <p className="text-sm text-slate-700 mt-2">
-              {days_remaining === 0
-                ? <span className="font-semibold text-amber-700">Hoy cierra el periodo</span>
-                : <>Quedan <span className="font-bold text-indigo-700">{days_remaining}</span> día{days_remaining !== 1 ? 's' : ''} para el cierre</>}
-            </p>
-          )}
-          {!isOpen && (
-            <p className="text-sm text-slate-600 mt-2">La admin revisará tus recibos en breve.</p>
-          )}
+          <p className={`text-sm mt-2 ${urgent ? 'text-amber-700 font-semibold' : 'text-slate-600'}`}>
+            {days_remaining === 0
+              ? 'Hoy cierra el periodo — envía tus gastos antes de que se cierre'
+              : <>Quedan <span className="font-bold">{days_remaining}</span> día{days_remaining !== 1 ? 's' : ''} — revisa que todos tus recibos están cargados</>}
+          </p>
+          <button
+            onClick={onSubmit}
+            disabled={submitting}
+            className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
+          >
+            <Send className="w-4 h-4" />
+            {submitting ? 'Enviando...' : 'Enviar mis gastos'}
+          </button>
+          <p className="text-xs text-slate-400 mt-2">
+            Podrás seguir añadiendo recibos después de enviar, hasta que la admin cierre el periodo.
+          </p>
         </div>
       </div>
     </Card>
@@ -145,6 +209,7 @@ export default function ProfilePage() {
   const [employee, setEmployee] = useState<EmployeeDetail | null>(null);
   const [periodStatus, setPeriodStatus] = useState<MyCurrentPeriodStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
 
@@ -165,6 +230,20 @@ export default function ProfilePage() {
       .catch(() => toast.error('Error cargando perfil'))
       .finally(() => setLoading(false));
   }, [employeeId, toast]);
+
+  const handleSubmitPeriod = async () => {
+    setSubmitting(true);
+    try {
+      await api.post('/periods/me/submit', {});
+      const updated = await api.get<MyCurrentPeriodStatus>('/periods/me/current-status');
+      setPeriodStatus(updated);
+      toast.success('Gastos enviados correctamente');
+    } catch {
+      toast.error('Error al enviar los gastos');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const toggleCategory = (cat: string) =>
     setExpanded((p) => ({ ...p, [cat]: !p[cat] }));
@@ -198,8 +277,14 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-5">
-      {/* Sprint 5A — Mi quincena actual */}
-      {periodStatus && <MyPeriodCard data={periodStatus} />}
+      {/* Mi quincena actual */}
+      {periodStatus && (
+        <MyPeriodCard
+          data={periodStatus}
+          onSubmit={handleSubmitPeriod}
+          submitting={submitting}
+        />
+      )}
 
       {/* Employee Header */}
       <Card className="p-6">

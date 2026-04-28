@@ -42,7 +42,7 @@ import { Card, KPICard, SectionHeader, Btn, EmptyState, DashboardSkeleton, Statu
 import { AccionHoyBanner } from '@/components/accion-hoy-banner';
 import { useToast } from '@/components/toast';
 import { useRole } from '@/lib/role-context';
-import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison, Period, SpendingByProject } from '@/types';
+import type { Summary, CategoryBreakdown, TopSpender, Alert, MonthlyTrend, ApprovalSummary, EmployeeDetail, Receipt, DepartmentComparison, Period, SpendingByProject, ActionToday } from '@/types';
 import { CATEGORY_LABEL, CATEGORY_COLOR, ALERT_LABEL } from '@/types';
 
 /* ──────────────────────────────────────
@@ -278,6 +278,7 @@ function AdminDashboard() {
   const [deptComparison, setDeptComparison] = useState<DepartmentComparison[]>([]);
   const [spendingByProject, setSpendingByProject] = useState<SpendingByProject[]>([]);
   const [period, setPeriod] = useState<Period | null>(null);
+  const [actionToday, setActionToday] = useState<ActionToday | null>(null);
   const [loading, setLoading] = useState(true);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoStep, setDemoStep] = useState('');
@@ -304,7 +305,7 @@ function AdminDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, c, sp, a, t, as_, dept, per, sbp] = await Promise.all([
+      const [s, c, sp, a, t, as_, dept, per, sbp, at_] = await Promise.all([
         api.get<Summary>('/analytics/summary'),
         api.get<CategoryBreakdown[]>('/analytics/categories'),
         api.get<TopSpender[]>('/analytics/top-spenders'),
@@ -314,6 +315,7 @@ function AdminDashboard() {
         api.get<DepartmentComparison[]>('/analytics/department-comparison'),
         api.get<Period>('/periods/current').catch(() => null),
         api.get<SpendingByProject[]>('/analytics/spending-by-project').catch(() => []),
+        api.get<ActionToday>('/analytics/action-today').catch(() => null),
       ]);
       setSummary(s);
       setCategories(Array.isArray(c) ? c : []);
@@ -324,6 +326,7 @@ function AdminDashboard() {
       setDeptComparison(Array.isArray(dept) ? dept : []);
       setPeriod(per);
       setSpendingByProject(Array.isArray(sbp) ? sbp.filter(p => p.total_spending > 0).slice(0, 10) : []);
+      setActionToday(at_);
     } catch {
       toast.error('Error cargando datos del dashboard');
     } finally {
@@ -503,15 +506,15 @@ function AdminDashboard() {
         </Card>
       )}
 
-      {/* Period Summary Card — descarga informe PDF */}
+      {/* Period Summary Card */}
       {period && (
         <Card className="p-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center flex-shrink-0">
                 <Calendar className="w-5 h-5" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-slate-800">Quincena actual</p>
                   <span
@@ -528,6 +531,44 @@ function AdminDashboard() {
                 <p className="text-xs text-slate-500 mt-0.5">
                   {fmt.date(period.start_date)} — {fmt.date(period.end_date)}
                 </p>
+                {/* Submission progress indicator */}
+                {actionToday && actionToday.period_total_employees > 0 && (
+                  <div className="mt-2">
+                    {(() => {
+                      const total = actionToday.period_total_employees;
+                      const pending = actionToday.period_pending_employees;
+                      const sent = period.status === 'open' ? total - pending : total;
+                      const pct = Math.round((sent / total) * 100);
+                      const label = period.status === 'open'
+                        ? `${sent}/${total} empleados han enviado sus gastos`
+                        : `${pending} empleado${pending !== 1 ? 's' : ''} sin revisar`;
+                      const barColor = period.status === 'open'
+                        ? (pct === 100 ? 'bg-emerald-500' : pending > 0 ? 'bg-amber-400' : 'bg-indigo-400')
+                        : (pending > 0 ? 'bg-amber-400' : 'bg-emerald-500');
+                      return (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] text-slate-500">{label}</span>
+                            {period.status === 'open' && pending > 0 && (
+                              <button
+                                onClick={() => router.push('/periods')}
+                                className="text-[11px] text-indigo-500 hover:text-indigo-700 font-medium"
+                              >
+                                Ver →
+                              </button>
+                            )}
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden w-full max-w-xs">
+                            <div
+                              className={`h-full rounded-full transition-all ${barColor}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
             <Btn
