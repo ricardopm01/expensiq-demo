@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   CreditCard,
@@ -71,7 +71,15 @@ function MatchBadge({ txn }: { txn: Transaction }) {
   );
 }
 
-export default function TransactionsPage() {
+export default function TransactionsPageWrapper() {
+  return (
+    <Suspense>
+      <TransactionsPage />
+    </Suspense>
+  );
+}
+
+function TransactionsPage() {
   const toast = useToast();
   const searchParams = useSearchParams();
   const [txns, setTxns] = useState<Transaction[]>([]);

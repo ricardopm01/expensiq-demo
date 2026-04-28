@@ -321,3 +321,13 @@ python demo_data_loader.py
 - Verificar que el backend responde antes de trabajar: `curl http://localhost:8000/health`
 - Verificar build del frontend: `cd frontend && npx next build`
 - Los datos demo se siembran con `python demo_data_loader.py` desde la raíz del proyecto
+
+### OBLIGATORIO antes de cualquier push o PR con cambios de frontend
+
+Siempre ejecutar el build de producción y confirmar que termina sin errores antes de hacer push:
+
+```bash
+cd frontend && npx next build
+```
+
+El despliegue en Vercel falla silenciosamente si el build local no se verifica primero. Un error típico es usar `useSearchParams()` sin envolverlo en un `<Suspense>` boundary — Next.js 14 lo requiere para el prerendering estático y no lo detecta en `dev`, solo en `build`.
